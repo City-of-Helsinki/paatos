@@ -3,55 +3,60 @@
 
 import json
 
+from enum import Enum
 from dateutil.parser import parse as dateutil_parse
 from django.db import transaction
 from django.utils.text import slugify
 
-from decisions.models import DataSource, Person
+from decisions.models import DataSource, Person, OrganizationClass
 
 from .base import Importer
 
-TYPE_MAP = {
-    1: 'council',
-    2: 'board',
-    4: 'board_division',
-    5: 'committee',
-    7: 'field',
-    8: 'department',
-    9: 'division',
-    10: 'introducer',
-    11: 'introducer_field',
-    12: 'office_holder',
-    13: 'city',
-    14: 'unit',
-    15: 'working_group',
-    16: 'packaged_service',
-    17: 'school_board',
-    18: 'packaged_service_introducer',
-    19: 'trustee'
+
+class Org(Enum):
+    COUNCIL = 1
+    BOARD = 2
+    EXECUTIVE_BOARD = 3
+    BOARD_DIVISION = 4
+    COMMITTEE = 5
+    COMMON = 6
+    FIELD = 7
+    DEPARTMENT = 8
+    DIVISION = 9
+    INTRODUCER = 10
+    INTRODUCER_FIELD = 11
+    OFFICE_HOLDER = 12
+    CITY = 13
+    UNIT = 14
+    WORKING_GROUP = 15
+    SCHOOL_BOARDS = 16
+    PACKAGED_SERVICE = 17
+    PACKAGED_INTRODUCER_SERVICE = 18
+    TRUSTEE = 19
+
+
+NAME_MAP = {
+    Org.COUNCIL: ('Valtuusto', None, 'Council'),
+    Org.BOARD: ('Hallitus', None, 'Board'),
+    Org.EXECUTIVE_BOARD: ('Johtajisto', None, 'Executive board'),
+    Org.BOARD_DIVISION: ('Jaosto', None, 'Board division'),
+    Org.COMMITTEE: ('Lautakunta', None, 'Committee'),
+    Org.COMMON: ('Yleinen', None, 'Common'),
+    Org.FIELD: ('Toimiala', None, 'Field'),
+    Org.DEPARTMENT: ('Virasto', None, 'Department'),
+    Org.DIVISION: ('Osasto', None, 'Division'),
+    Org.INTRODUCER: ('Esittelijä', None, 'Introducer'),
+    Org.INTRODUCER_FIELD: ('Esittelijä (toimiala)', None, 'Introducer field'),
+    Org.OFFICE_HOLDER: ('Viranhaltija', None, 'Office holder'),
+    Org.CITY: ('Kaupunki', None, 'City'),
+    Org.UNIT: ('Yksikkö', None, 'Unit'),
+    Org.WORKING_GROUP: ('Toimikunta', None, 'Working group'),
+    Org.SCHOOL_BOARDS: ('Koulujen johtokunnat', None, 'School boards'),
+    Org.PACKAGED_SERVICE: ('Palvelukokonaisuus', None, 'Packaged service'),
+    Org.PACKAGED_INTRODUCER_SERVICE: ('Esittelijäpalvelukokonaisuus', None, 'Packaged introducer service'),
+    Org.TRUSTEE: ('Luottamushenkilö', None, 'Trustee')
 }
 
-TYPE_NAME_FI = {
-    1:  'Valtuusto',
-    2:  'Hallitus',
-    3:  'Johtajisto',
-    4:  'Jaosto',
-    5:  'Lautakunta',
-    6:  'Yleinen',
-    7:  'Toimiala',
-    8:  'Virasto',
-    9:  'Osasto',
-    10: 'Esittelijä',
-    11: 'Esittelijä (toimiala)',
-    12: 'Viranhaltija',
-    13: 'Kaupunki',
-    14: 'Yksikkö',
-    15: 'Toimikunta',
-    16: 'Koulujen johtokunnat',
-    17: 'Palvelukokonaisuus',
-    18: 'Esittelijäpalvelukokonaisuus',
-    19: 'Luottamushenkilö'
-}
 
 PARENT_OVERRIDES = {
     'Kiinteistövirasto': '100',  # Kaupunkisuunnittelu- ja kiinteistötoimi'
@@ -75,13 +80,11 @@ class HelsinkiImporter(Importer):
 
     @transaction.atomic()
     def _import_organization(self, info):
-        if info['type'] not in TYPE_MAP:
-            raise ValueError('Encountered unknown type id: {}'.format(info['type']))
+        org_type = Org(info['type'])
         org = dict(origin_id=info['id'])
-        org['classification'] = TYPE_NAME_FI[info['type']]
-        org_type = TYPE_MAP[info['type']]
+        org['classification'] = OrganizationClass.objects.get(id=org_type.value)
 
-        if org_type in ['introducer', 'introducer_field', 'packaged_service_introducer']:
+        if org_type in [Org.INTRODUCER, Org.INTRODUCER_FIELD, Org.PACKAGED_INTRODUCER_SERVICE]:
             self.skip_orgs.add(org['origin_id'])
             return
 
@@ -103,7 +106,7 @@ class HelsinkiImporter(Importer):
         ]
         """
 
-        if org_type in ('council', 'committee', 'board_division', 'board'):
+        if org_type in (Org.COUNCIL, Org.COMMITTEE, Org.BOARD_DIVISION, Org.BOARD):
             org['slug'] = slugify(org['abbreviation'])
         else:
             org['slug'] = slugify(org['origin_id'])
@@ -164,12 +167,20 @@ class HelsinkiImporter(Importer):
                     role=person_info['role'],
                 ))
 
-        if org_type in ['office_holder', 'trustee']:
+        if org_type in [Org.OFFICE_HOLDER, Org.TRUSTEE]:
             self.save_post(org)
         else:
             self.save_organization(org)
 
     def import_organizations(self, filename):
+        self.logger.info('Clearing organization class definitions')
+        OrganizationClass.objects.all().delete()
+
+        self.logger.info('Writing new organization class definitions...')
+        for enum, names in NAME_MAP.items():
+            klass = OrganizationClass(id=enum.value, name_fi=names[0], name_sv=names[1], name_en=names[2])
+            klass.save()
+
         self.logger.info('Importing organizations...')
 
         with open(filename, 'r') as org_file:

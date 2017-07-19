@@ -6,8 +6,16 @@ from django.utils.translation import ugettext_lazy as _
 from .base import DataModel
 
 
+class OrganizationClass(DataModel):
+    id = models.PositiveIntegerField(primary_key=True)
+    name_fi = models.CharField(max_length=255, null=True)
+    name_sv = models.CharField(max_length=255, null=True)
+    name_en = models.CharField(max_length=255, null=True)
+
+
 class Organization(DataModel):
-    classification = models.CharField(max_length=255, help_text=_('An organization category, e.g. committee'))
+    classification = models.ForeignKey(OrganizationClass,
+                                       help_text=_('An organization category, e.g. committee'))
     name = models.CharField(max_length=255, help_text=_('A primary name, e.g. a legally recognized name'))
     founding_date = models.DateField(help_text=_('A date of founding'), blank=True, null=True)
     dissolution_date = models.DateField(help_text=_('A date of dissolution'), blank=True, null=True)
