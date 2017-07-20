@@ -6,7 +6,7 @@ from django.utils.translation import ugettext_lazy as _
 from .base import DataModel
 
 
-class OrganizationClass(DataModel):
+class OrganizationClass(models.Model):
     id = models.PositiveIntegerField(primary_key=True)
     name_fi = models.CharField(max_length=255, null=True)
     name_sv = models.CharField(max_length=255, null=True)

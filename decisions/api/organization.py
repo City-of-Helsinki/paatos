@@ -1,13 +1,20 @@
 from rest_framework import serializers, viewsets
 
-from decisions.models import Event, Organization, Post
+from decisions.models import Event, OrganizationClass, Organization, Post
 
 from .base import DataModelSerializer
+
+
+class OrganizationClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrganizationClass
+        fields = '__all__'
 
 
 class OrganizationSerializer(DataModelSerializer):
     events = serializers.HyperlinkedRelatedField(queryset=Event.objects.all(), view_name='event-detail', many=True)
     posts = serializers.HyperlinkedRelatedField(queryset=Post.objects.all(), view_name='post-detail', many=True)
+    classification = OrganizationClassSerializer()
 
     class Meta:
         model = Organization
