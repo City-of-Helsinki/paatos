@@ -7,9 +7,7 @@ from .base import DataModel
 
 
 class OrganizationClass(models.Model):
-    name_fi = models.CharField(max_length=255, null=True)
-    name_sv = models.CharField(max_length=255, null=True)
-    name_en = models.CharField(max_length=255, null=True)
+    name = models.CharField(max_length=255, null=True)
 
 
 class Organization(DataModel):

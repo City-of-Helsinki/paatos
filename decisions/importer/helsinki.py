@@ -177,11 +177,9 @@ class HelsinkiImporter(Importer):
         for enum, names in NAME_MAP.items():
             values = {
                 'id': enum.value,
-                'name_fi': names[0],
-                'name_sv': names[1],
-                'name_en': names[2]
+                'name': names[0]
             }
-            klass, updated = OrganizationClass.objects.update_or_create(**values, defaults=values)
+            klass, updated = OrganizationClass.objects.update_or_create(id=values['id'], defaults=values)
 
         self.logger.info('Importing organizations...')
 

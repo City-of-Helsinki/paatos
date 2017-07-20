@@ -12,7 +12,7 @@ class OrganizationClassFactory(factory.django.DjangoModelFactory):
         model = OrganizationClass
 
     id = 1
-    name_fi = fake.company_suffix()
+    name = fake.company_suffix()
 
 
 class OrganizationFactory(factory.django.DjangoModelFactory):
