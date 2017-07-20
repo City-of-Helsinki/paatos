@@ -173,13 +173,15 @@ class HelsinkiImporter(Importer):
             self.save_organization(org)
 
     def import_organizations(self, filename):
-        self.logger.info('Clearing organization class definitions')
-        OrganizationClass.objects.all().delete()
-
-        self.logger.info('Writing new organization class definitions...')
+        self.logger.info('Updating organization class definitions...')
         for enum, names in NAME_MAP.items():
-            klass = OrganizationClass(id=enum.value, name_fi=names[0], name_sv=names[1], name_en=names[2])
-            klass.save()
+            values = {
+                'id': enum.value,
+                'name_fi': names[0],
+                'name_sv': names[1],
+                'name_en': names[2]
+            }
+            klass, updated = OrganizationClass.objects.update_or_create(**values, defaults=values)
 
         self.logger.info('Importing organizations...')
 

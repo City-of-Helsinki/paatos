@@ -7,15 +7,17 @@ from .base import DataModel
 
 
 class OrganizationClass(models.Model):
-    id = models.PositiveIntegerField(primary_key=True)
     name_fi = models.CharField(max_length=255, null=True)
     name_sv = models.CharField(max_length=255, null=True)
     name_en = models.CharField(max_length=255, null=True)
 
 
 class Organization(DataModel):
-    classification = models.ForeignKey(OrganizationClass,
-                                       help_text=_('An organization category, e.g. committee'))
+    classification = models.ForeignKey(
+        OrganizationClass,
+        help_text=_('An organization category, e.g. committee'),
+        on_delete=models.PROTECT,
+    )
     name = models.CharField(max_length=255, help_text=_('A primary name, e.g. a legally recognized name'))
     founding_date = models.DateField(help_text=_('A date of founding'), blank=True, null=True)
     dissolution_date = models.DateField(help_text=_('A date of dissolution'), blank=True, null=True)
