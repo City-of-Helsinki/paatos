@@ -18,3 +18,9 @@ class Event(DataModel):
 
     def __str__(self):
         return '%s %s' % (self.start_date, self.organization)
+
+
+class EventAttendee(DataModel):
+    event = models.ForeignKey(Event, related_name='attendees')
+    person = models.ForeignKey('Person', related_name='attendances')
+    role = models.CharField(max_length=255, help_text=_('The attendee\'s role in the event'), null=True)
