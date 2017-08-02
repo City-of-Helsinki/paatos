@@ -6,6 +6,8 @@ django-enumfields
 django-environ
 django-parler-rest
 django-easy-select2
+lxml
+pytz
 # dev requirements:
 autoflake
 autopep8

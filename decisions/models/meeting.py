@@ -13,8 +13,8 @@ class Event(DataModel):
     name = models.CharField(max_length=255, help_text=_("The event's name"), blank=True)
     organization = models.ForeignKey('Organization', related_name='events',
                                      help_text=_('The organization organizing the event'), blank=True, null=True)
-    start_date = models.DateField(help_text=_('The time at which the event starts'))
-    end_date = models.DateField(help_text=_('The time at which the event ends'), blank=True, null=True)
+    start_date = models.DateTimeField(help_text=_('The time at which the event starts'))
+    end_date = models.DateTimeField(help_text=_('The time at which the event ends'), blank=True, null=True)
 
     def __str__(self):
         return '%s %s' % (self.start_date, self.organization)

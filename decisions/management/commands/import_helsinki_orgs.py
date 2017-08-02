@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from decisions.importer.helsinki import HelsinkiImporter
+from decisions.importer.helsinki.helsinki import HelsinkiImporter
 
 
 class Command(BaseCommand):
