@@ -151,7 +151,7 @@ class AhjoDocument:
                 a_attrs = {}
 
                 name = attendee.find('Nimi')
-                if name is not None:
+                if name is not None and name.text:
                     a_attrs['name'] = AhjoDocument.parse_name(name.text)
                 else:
                     self.warning("Attendee doesn't have a name")
