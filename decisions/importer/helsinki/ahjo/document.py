@@ -288,16 +288,16 @@ class AhjoDocument:
 
         # actions = root.find('KasiteltavatAsiat')
 
-    def __init__(self, filename, except_treshold=logging.CRITICAL):
+    def __init__(self, source, except_treshold=logging.CRITICAL):
         self.logger = logging.getLogger(__name__)
         self.errors = []
 
-        self.filename = filename
+        self.filename = source if isinstance(source, str) else source.name
         self.except_treshold = except_treshold
 
         self.current_action = None
 
-        xml = etree.parse(filename)
+        xml = etree.parse(source)
         root = xml.getroot()
 
         if root.tag == 'Poytakirja':
