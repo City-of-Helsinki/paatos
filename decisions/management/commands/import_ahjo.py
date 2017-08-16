@@ -1,7 +1,7 @@
 import sys
 
 from django.core.management.base import BaseCommand
-from decisions.importer.helsinki.ahjoxml import AhjoDocument
+from decisions.importer.helsinki.ahjo import AhjoDocument
 
 
 class Command(BaseCommand):
