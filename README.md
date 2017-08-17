@@ -1,4 +1,4 @@
-[![Build status](https://travis-ci.org/City-of-Helsinki/paatos.svg)](https://travis-ci.org/City-of-Helsinki/paatos)
+[![Build status](https://travis-ci.org/City-of-Helsinki/paatos.svg?branch=master)](https://travis-ci.org/City-of-Helsinki/paatos)
 [![codecov](https://codecov.io/gh/City-of-Helsinki/paatos/branch/master/graph/badge.svg)](https://codecov.io/gh/City-of-Helsinki/paatos)
 [![Requirements](https://requires.io/github/City-of-Helsinki/paatos/requirements.svg?branch=master)](https://requires.io/github/City-of-Helsinki/paatos/requirements/?branch=master)
 
