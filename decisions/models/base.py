@@ -29,3 +29,13 @@ class DataModel(BaseModel):
     class Meta:
         abstract = True
         unique_together = ('data_source', 'origin_id')
+
+
+class ImportedFile(BaseModel):
+    data_source = models.ForeignKey(
+        DataSource, blank=True, null=True, db_index=True)
+    path = models.CharField(max_length=2000, db_index=True)
+    imported_version = models.CharField(max_length=100)
+
+    class Meta:
+        unique_together = [('data_source', 'path')]
