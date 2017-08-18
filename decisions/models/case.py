@@ -62,7 +62,7 @@ class Action(DataModel):
     post = models.ForeignKey('Post', related_name='actions', blank=True, null=True, help_text=_(
         'If this decision was delegated, this field will be filled and refers to the post that made the decision'))
     event = models.ForeignKey('Event', related_name='actions', help_text=_('Event this action is related to'),
-                              null=True, blank=True),
+                              null=True, blank=True)
     date = models.DateTimeField(help_text=_('Date and time this decision was made at'), null=True)
 
     def __str__(self):
