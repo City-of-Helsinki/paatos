@@ -93,7 +93,7 @@ class AhjoDocument:
         human_readable = '{} (File: {}, Action: {})'.format(msg, self.filename, self.current_action)
         self.logger.log(severity, human_readable)
 
-        attrs = ['current_document', 'current_action']
+        attrs = ['current_action']
 
         state = {attr: getattr(self, attr) for attr in attrs}
         state['filename'] = self.filename
@@ -215,18 +215,26 @@ class AhjoDocument:
 
         metadata = action.find('KuvailutiedotOpenDocument')
 
+        vakiopaatos = False
+        asktieto = self.gt(metadata, 'AsiakirjallinenTieto')
+        if asktieto is not None and 'vakiopäätös' in asktieto:
+            vakiopaatos = True
+
         attrs['title'] = self.gt(metadata, 'Otsikko', self.warning)
         self.current_action = attrs['title']
 
         attrs['function_id'] = self.parse_funcid(self.gt(metadata, 'Tehtavaluokka', self.warning))[0]
 
         attrs['case_guid'] = AhjoDocument.parse_guid(self.gt(metadata, 'AsiaGuid'))
-        if attrs['case_guid'] is None:  # and 'vakiopäätös' not in self.gt(metadata, 'AsiakirjallinenTieto', self.warning):
+        if attrs['case_guid'] is None and not vakiopaatos:
             self.error("Action doesn't have an associated case")
 
         attrs['date'] = AhjoDocument.parse_datetime(self.gt(metadata, 'Paatospaiva', self.error))
         attrs['article_number'] = self.gt(metadata, 'Pykala', self.error, format=int)
-        attrs['dnro'] = self.gt(metadata, 'Dnro/DnroLyhyt', self.warning)
+
+        attrs['dnro'] = self.gt(metadata, 'Dnro/DnroLyhyt')
+        if attrs['dnro'] is None and not vakiopaatos:
+            self.error("Action doesn't have a journal number (diaarinumero)")
 
         resolution_el = metadata.find('Asiakirjantila')
 
@@ -287,7 +295,6 @@ class AhjoDocument:
         self.filename = filename
         self.except_treshold = except_treshold
 
-        self.current_document = None
         self.current_action = None
 
         xml = etree.parse(filename)
