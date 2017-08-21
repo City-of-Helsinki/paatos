@@ -21,3 +21,4 @@ pip-tools
 psycopg2
 django-filter
 djangorestframework-gis
+httpio

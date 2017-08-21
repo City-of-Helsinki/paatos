@@ -1,11 +1,12 @@
+import contextlib
 import logging
 import re
 import zipfile
 
+import httpio
 from django.utils.functional import cached_property
 
 from .document import AhjoDocument
-from .http_file import HttpFetchedFile
 from .parse_dirlist import parse_file_path
 
 LOG = logging.getLogger(__name__)
@@ -79,9 +80,14 @@ class DocumentInfo(object):
             document = AhjoDocument(xml_file)
         return document
 
+    @contextlib.contextmanager
     def _open_remote_xml_file(self):
-        remote_file = HttpFetchedFile(self.url)
-        zipf = zipfile.ZipFile(remote_file)
+        with httpio.open(self.url) as remote_file:
+            with zipfile.ZipFile(remote_file) as zipf:
+                with self._open_xml_file_from_zip(zipf) as xml_file:
+                    yield xml_file
+
+    def _open_xml_file_from_zip(self, zipf):
         name_list = zipf.namelist()
         xml_names = [x for x in name_list if x.endswith('.xml')]
         if len(xml_names) == 0:

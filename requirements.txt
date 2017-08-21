@@ -26,6 +26,7 @@ factory-boy==2.8.1        # via pytest-factoryboy
 faker==0.7.17             # via factory-boy
 first==2.0.1              # via pip-tools
 flake8==3.3.0
+httpio==0.1.3
 idna==2.5                 # via requests
 inflection==0.3.1         # via pytest-factoryboy
 isort==4.2.15
@@ -42,6 +43,6 @@ pytest-factoryboy==1.3.1
 pytest==3.1.3             # via pytest-cov, pytest-django, pytest-factoryboy
 python-dateutil==2.6.1    # via faker
 pytz==2017.2
-requests==2.18.1          # via coveralls
+requests==2.18.1          # via coveralls, httpio
 six==1.10.0               # via django-environ, faker, pip-tools, python-dateutil
 urllib3==1.21.1           # via requests
