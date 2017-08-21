@@ -30,6 +30,19 @@ class ParseError(Exception):
 
 class AhjoDocument:
     @staticmethod
+    def clean_html(raw):
+        # TODO
+        return ''.join([str(etree.tostring(el)) for el in raw])
+
+    @staticmethod
+    def parse_funcid(raw):
+        if raw is None:
+            return (None, None)
+
+        match = re.fullmatch(r'((?:\d\d ){0,}\d\d) (.*)', raw)
+        return (match.group(1), match.group(2))
+
+    @staticmethod
     def parse_name(name):
         if ', ' in name:
             name = name.split(', ')
@@ -109,7 +122,7 @@ class AhjoDocument:
     def debug(self, msg):
         self.log(logging.DEBUG, msg)
 
-    def gt(self, parent, el_name, log, format=None):
+    def gt(self, parent, el_name, log=lambda x: None, format=None):
         el = parent.find(el_name)
         if el is None:
             log("Element {} not found".format(el_name))
@@ -146,16 +159,17 @@ class AhjoDocument:
 
                 opts = attendee.find('OsallistujaOptiot')
                 if opts is not None:
-                    role = opts.find('Rooli')
-                    if role is not None:
-                        a_attrs['role'] = role.text
+                    a_attrs['role'] = self.gt(opts, 'Rooli')
+                else:
+                    a_attrs['role'] = None
 
-                title = attendee.find('Titteli')
-                if title is not None:
-                    a_attrs['title'] = title.text
+                a_attrs['title'] = self.gt(attendee, 'Titteli')
 
                 if group_name is not None:
-                    a_attrs['category'] = ATTENDEE_MAP[group_name.lower()]
+                    try:
+                        a_attrs['category'] = ATTENDEE_MAP[group_name.lower()]
+                    except KeyError:
+                        continue
                 else:
                     a_attrs['category'] = 'participant'
 
@@ -174,21 +188,27 @@ class AhjoDocument:
         return attrs
 
     def import_content(self, content):
-        chapters = content.findall('.//Kappale')
-        if chapters is not None:
-            text = ''
-            for chapter in chapters:
-                chapter_text = chapter.find('KappaleTeksti')
-                if chapter_text is not None:
-                    text += '<p>{}</p>\n'.format(chapter_text.text)
-        else:
-            self.error("Content doesn't have chapters")
+        if content is None:
+            return None
 
-        attrs = {
-            'hypertext': text
-        }
+        s = ""
 
-        return attrs
+        for section in content:
+            heading = self.gt(section, 'SisaltoOtsikko')
+            if heading is not None:
+                s += '<h2>{}</h2>\n'.format(heading)
+
+            mystery = section.find('TekstiSektio/taso1')
+            if mystery is not None:
+                for el in mystery:
+                    if el.tag == 'Kappale':
+                        s += '<p>{}</p>\n'.format(self.gt(el, 'KappaleTeksti'))
+                    elif el.tag == 'Otsikko':
+                        s += '<h3>{}<h3>\n'.format(el.text)
+                    elif el.tag == 'XHTML':
+                        s += AhjoDocument.clean_html(el)
+
+            return s
 
     def import_action(self, action):
         attrs = {}
@@ -198,20 +218,14 @@ class AhjoDocument:
         attrs['title'] = self.gt(metadata, 'Otsikko', self.warning)
         self.current_action = attrs['title']
 
-        attrs['action_class'] = self.gt(metadata, 'AsiakirjallinenTieto', self.warning)
-        if attrs['action_class'] is not None:
-            attrs['action_class'] = attrs['action_class'].split(' ')
+        attrs['function_id'] = self.parse_funcid(self.gt(metadata, 'Tehtavaluokka', self.warning))[0]
 
-        attrs['case_guid'] = AhjoDocument.parse_guid(self.gt(metadata, 'AsiaGuid', lambda x: None))
-        if attrs['case_guid'] is None and \
-           attrs['action_class'] is not None and \
-           attrs['action_class'][-1].lower() != 'vakiopäätös':
+        attrs['case_guid'] = AhjoDocument.parse_guid(self.gt(metadata, 'AsiaGuid'))
+        if attrs['case_guid'] is None:  # and 'vakiopäätös' not in self.gt(metadata, 'AsiakirjallinenTieto', self.warning):
             self.error("Action doesn't have an associated case")
 
         attrs['date'] = AhjoDocument.parse_datetime(self.gt(metadata, 'Paatospaiva', self.error))
-
         attrs['article_number'] = self.gt(metadata, 'Pykala', self.error, format=int)
-
         attrs['dnro'] = self.gt(metadata, 'Dnro/DnroLyhyt', self.warning)
 
         resolution_el = metadata.find('Asiakirjantila')
@@ -225,7 +239,10 @@ class AhjoDocument:
             self.warning("Action doesn't have a resolution")
 
         content = action.find('SisaltoSektioToisto')
-        attrs['content'] = [self.import_content(cs) for cs in content]
+        attrs['content'] = self.import_content(content)
+
+        keywords = action.findall('Asiasana')
+        attrs['keywords'] = [{'name': kw.text} for kw in keywords]
 
         return attrs
 
@@ -234,10 +251,6 @@ class AhjoDocument:
 
         actions = root.find('Paatokset')
         metadata = root.find('Kuvailutiedot')
-
-        guid_el = metadata.find('DhId')
-        attrs['guid'] = AhjoDocument.parse_guid(guid_el.text)
-        self.current_document = attrs['guid']
 
         event_data = root.find('YlatunnisteSektio')
         event_metadata = root.find('PkKansilehtiSektio')
