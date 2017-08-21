@@ -6,7 +6,7 @@ import zipfile
 import httpio
 from django.utils.functional import cached_property
 
-from .document import AhjoDocument
+from .document import Document
 from .parse_dirlist import parse_file_path
 
 LOG = logging.getLogger(__name__)
@@ -74,10 +74,10 @@ class DocumentInfo(object):
         """
         Get the parsed Ahjo document of this document info.
 
-        :rtype: AhjoDocument
+        :rtype: Document
         """
         with self._open_remote_xml_file() as xml_file:
-            document = AhjoDocument(xml_file)
+            document = Document(xml_file)
         return document
 
     @contextlib.contextmanager

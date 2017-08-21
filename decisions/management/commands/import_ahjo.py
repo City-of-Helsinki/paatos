@@ -1,7 +1,8 @@
 import sys
 
 from django.core.management.base import BaseCommand
-from decisions.importer.helsinki.ahjo import AhjoDocument
+
+from decisions.importer.helsinki import ahjo
 
 
 class Command(BaseCommand):
@@ -15,6 +16,6 @@ class Command(BaseCommand):
         for filename in sys.stdin:
             filename = filename.strip()
             print(filename)
-            importer = AhjoDocument(filename)
+            importer = ahjo.Document(filename)
             print(importer.json)
             print()

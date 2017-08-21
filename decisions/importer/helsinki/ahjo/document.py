@@ -28,7 +28,7 @@ class ParseError(Exception):
     pass
 
 
-class AhjoDocument:
+class Document:
     @staticmethod
     def clean_html(raw):
         # TODO
@@ -152,7 +152,7 @@ class AhjoDocument:
 
                 name = attendee.find('Nimi')
                 if name is not None and name.text:
-                    a_attrs['name'] = AhjoDocument.parse_name(name.text)
+                    a_attrs['name'] = Document.parse_name(name.text)
                 else:
                     self.warning("Attendee doesn't have a name")
                     continue
@@ -206,7 +206,7 @@ class AhjoDocument:
                     elif el.tag == 'Otsikko':
                         s += '<h3>{}<h3>\n'.format(el.text)
                     elif el.tag == 'XHTML':
-                        s += AhjoDocument.clean_html(el)
+                        s += Document.clean_html(el)
 
             return s
 
@@ -225,11 +225,11 @@ class AhjoDocument:
 
         attrs['function_id'] = self.parse_funcid(self.gt(metadata, 'Tehtavaluokka', self.warning))[0]
 
-        attrs['case_guid'] = AhjoDocument.parse_guid(self.gt(metadata, 'AsiaGuid'))
+        attrs['case_guid'] = Document.parse_guid(self.gt(metadata, 'AsiaGuid'))
         if attrs['case_guid'] is None and not vakiopaatos:
             self.error("Action doesn't have an associated case")
 
-        attrs['date'] = AhjoDocument.parse_datetime(self.gt(metadata, 'Paatospaiva', self.error))
+        attrs['date'] = Document.parse_datetime(self.gt(metadata, 'Paatospaiva', self.error))
         attrs['article_number'] = self.gt(metadata, 'Pykala', self.error, format=int)
 
         attrs['dnro'] = self.gt(metadata, 'Dnro/DnroLyhyt')
