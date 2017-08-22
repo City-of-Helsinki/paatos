@@ -29,29 +29,29 @@ class ParseError(Exception):
 
 
 class Document:
-    @staticmethod
-    def clean_html(raw):
+    @classmethod
+    def clean_html(cls, raw):
         # TODO
         return ''.join([str(etree.tostring(el)) for el in raw])
 
-    @staticmethod
-    def parse_funcid(raw):
+    @classmethod
+    def parse_funcid(cls, raw):
         if raw is None:
             return (None, None)
 
         match = re.fullmatch(r'((?:\d\d ){0,}\d\d) (.*)', raw)
         return (match.group(1), match.group(2))
 
-    @staticmethod
-    def parse_name(name):
+    @classmethod
+    def parse_name(cls, name):
         if ', ' in name:
             name = name.split(', ')
             name = '{} {}'.format(name[1], name[0])
 
         return name
 
-    @staticmethod
-    def parse_guid(raw):
+    @classmethod
+    def parse_guid(cls, raw):
         if raw is None:
             return None
 
@@ -61,8 +61,8 @@ class Document:
         else:
             raise ParseError("Invalid GUID format")
 
-    @staticmethod
-    def parse_datetime(raw):
+    @classmethod
+    def parse_datetime(cls, raw):
         if raw is None:
             return None
 
@@ -152,7 +152,7 @@ class Document:
 
                 name = attendee.find('Nimi')
                 if name is not None and name.text:
-                    a_attrs['name'] = Document.parse_name(name.text)
+                    a_attrs['name'] = self.parse_name(name.text)
                 else:
                     self.warning("Attendee doesn't have a name")
                     continue
@@ -241,7 +241,7 @@ class Document:
                     elif el.tag == 'Otsikko':
                         s += '<h3>{}<h3>\n'.format(el.text)
                     elif el.tag == 'XHTML':
-                        s += Document.clean_html(el)
+                        s += self.clean_html(el)
 
             return s
 
@@ -260,11 +260,11 @@ class Document:
 
         attrs['function_id'] = self.parse_funcid(self.gt(metadata, 'Tehtavaluokka', self.warning))[0]
 
-        attrs['case_guid'] = Document.parse_guid(self.gt(metadata, 'AsiaGuid'))
+        attrs['case_guid'] = self.parse_guid(self.gt(metadata, 'AsiaGuid'))
         if attrs['case_guid'] is None and not vakiopaatos:
             self.error("Action doesn't have an associated case")
 
-        attrs['date'] = Document.parse_datetime(self.gt(metadata, 'Paatospaiva', self.error))
+        attrs['date'] = self.parse_datetime(self.gt(metadata, 'Paatospaiva', self.error))
         attrs['article_number'] = self.gt(metadata, 'Pykala', self.error, format=int)
 
         attrs['dnro'] = self.gt(metadata, 'Dnro/DnroLyhyt')
@@ -291,7 +291,7 @@ class Document:
         attachments = action.findall('LiitteetOptio/Liitteet/LiitteetToisto')
         for a in attachments:
             attrs['attachments'].append({
-                'id': Document.parse_guid(self.gt(a, 'LiitteetId')),
+                'id': self.parse_guid(self.gt(a, 'LiitteetId')),
                 'name': self.gt(a, 'Liiteteksti'),
                 'ordering': int(self.gt(a, 'Liitenumero'))
             })
