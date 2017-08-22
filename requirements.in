@@ -13,7 +13,7 @@ autoflake
 autopep8
 coveralls
 flake8
-isort
+flake8-isort
 pytest-cov
 pytest-django
 pytest-factoryboy
