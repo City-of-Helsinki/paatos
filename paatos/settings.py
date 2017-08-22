@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_filters",
+    "parler",
     "rest_framework",
     "easy_select2",
     "rest_framework_gis",

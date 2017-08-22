@@ -1,13 +1,16 @@
 # -*- coding: UTF-8 -*-
 
 from django.db import models
+from parler.models import TranslatableModel, TranslatedFields
 from django.utils.translation import ugettext_lazy as _
 
 from .base import DataModel
 
 
-class OrganizationClass(models.Model):
-    name = models.CharField(max_length=255, null=True)
+class OrganizationClass(TranslatableModel):
+    translations = TranslatedFields(
+        name=models.CharField(max_length=255, null=True)
+    )
 
 
 class Organization(DataModel):
@@ -16,7 +19,9 @@ class Organization(DataModel):
         help_text=_('An organization category, e.g. committee'),
         on_delete=models.PROTECT,
     )
-    name = models.CharField(max_length=255, help_text=_('A primary name, e.g. a legally recognized name'))
+    translations = TranslatedFields(
+        name=models.CharField(max_length=255, help_text=_('A primary name, e.g. a legally recognized name'))
+    )
     founding_date = models.DateField(help_text=_('A date of founding'), blank=True, null=True)
     dissolution_date = models.DateField(help_text=_('A date of dissolution'), blank=True, null=True)
     parent = models.ForeignKey('self', help_text=_('The organizations that contain this organization'), null=True,
@@ -30,7 +35,9 @@ class Organization(DataModel):
 
 
 class Post(DataModel):
-    label = models.CharField(max_length=255, help_text=_('A label describing the post'))
+    translations = TranslatedFields(
+        label=models.CharField(max_length=255, help_text=_('A label describing the post'))
+    )
     organization = models.ForeignKey(Organization, related_name='posts',
                                      help_text=_('The organization in which the post is held'))
     start_date = models.DateField(help_text=_('The date on which the post was created'), null=True, blank=True)

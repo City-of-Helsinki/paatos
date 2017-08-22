@@ -2,9 +2,10 @@
 
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
+from parler.models import TranslatableModel
 
 
-class BaseModel(models.Model):
+class BaseModel(TranslatableModel):
     created_at = models.DateTimeField(auto_now_add=True, editable=False,
                                       help_text=_('The time at which the resource was created'))
     modified_at = models.DateTimeField(auto_now=True, editable=False,

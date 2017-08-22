@@ -1,11 +1,12 @@
 from rest_framework import serializers, viewsets
+from parler_rest.serializers import TranslatableModelSerializer  # , TranslatedFieldsField
 
 from decisions.models import Event, OrganizationClass, Organization, Post
 
 from .base import DataModelSerializer
 
 
-class OrganizationClassSerializer(serializers.ModelSerializer):
+class OrganizationClassSerializer(TranslatableModelSerializer):
     class Meta:
         model = OrganizationClass
         fields = '__all__'
