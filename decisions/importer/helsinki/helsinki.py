@@ -2,13 +2,13 @@
 # Based heavily on https://github.com/City-of-Helsinki/openahjo/blob/4bcb003d5db932ca28ea6851d76a20a4ee6eef54/decisions/importer/helsinki.py  # noqa
 
 import json
-
 from enum import Enum
+
 from dateutil.parser import parse as dateutil_parse
 from django.db import transaction
 from django.utils.text import slugify
 
-from decisions.models import DataSource, Person, OrganizationClass
+from decisions.models import DataSource, OrganizationClass, Person
 
 from .base import Importer
 

@@ -1,6 +1,6 @@
 from rest_framework import serializers, viewsets
 
-from decisions.models import Event, OrganizationClass, Organization, Post
+from decisions.models import Event, Organization, OrganizationClass, Post
 
 from .base import DataModelSerializer
 

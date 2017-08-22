@@ -1,10 +1,10 @@
-import pytz
-import re
-import logging
 import json
+import logging
+import re
+from datetime import date, datetime
 
+import pytz
 from lxml import etree
-from datetime import datetime, date
 
 RESOLUTION_MAP = {
     'hyväksytty': 'accepted'

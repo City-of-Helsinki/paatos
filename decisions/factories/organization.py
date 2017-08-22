@@ -1,7 +1,7 @@
 import factory
 from faker import Faker
 
-from decisions.models import OrganizationClass, Organization, Post
+from decisions.models import Organization, OrganizationClass, Post
 
 fake = Faker()
 fake.seed(7)

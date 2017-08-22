@@ -2,7 +2,8 @@
 
 import datetime
 
-from decisions.importer.helsinki.ahjo.parse_dirlist import parse_dir_listing, parse_file_path
+from decisions.importer.helsinki.ahjo.parse_dirlist import (
+    parse_dir_listing, parse_file_path)
 
 EXAMPLE_ROOT_LISTING = r"""
 <html><head><title>openhelsinki.hel.fi - /files/</title></head>
