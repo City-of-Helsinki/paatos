@@ -6,8 +6,8 @@ import zipfile
 import httpio
 from django.utils.functional import cached_property
 
-from .document import Document
 from .parse_dirlist import parse_file_path
+from .xmlparser import Document
 
 LOG = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 from .db_importer import DatabaseImporter
 from .docinfo import DocumentInfo
-from .document import Document
 from .scanner import Scanner, scan_dir
+from .xmlparser import Document
 
 __all__ = [
     'DatabaseImporter',
