@@ -16,6 +16,6 @@ class Command(BaseCommand):
         for filename in sys.stdin:
             filename = filename.strip()
             print(filename)
-            importer = ahjo.Document(filename)
-            print(importer.json)
+            document = ahjo.parse_xml(filename)
+            print(document.as_json())
             print()

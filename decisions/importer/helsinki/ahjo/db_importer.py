@@ -24,4 +24,4 @@ class DatabaseImporter(Importer):
 
     def handle_document_changed(self, doc_info):
         print("Updating data from {}".format(doc_info))
-        data = doc_info.get_document().document
+        doc = doc_info.get_document()

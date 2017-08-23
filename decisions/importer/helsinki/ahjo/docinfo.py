@@ -7,7 +7,7 @@ import httpio
 from django.utils.functional import cached_property
 
 from .parse_dirlist import parse_file_path
-from .xmlparser import Document
+from .xmlparser import parse_xml
 
 LOG = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class DocumentInfo(object):
         :rtype: Document
         """
         with self._open_remote_xml_file() as xml_file:
-            document = Document(xml_file)
+            document = parse_xml(xml_file)
         return document
 
     @contextlib.contextmanager
