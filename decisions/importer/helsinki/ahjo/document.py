@@ -177,13 +177,48 @@ class Document:
 
         return ret
 
-    def import_event(self, event_data):
+    def import_event(self, data1, data2):
         attrs = {}
 
-        date_el = event_data.find('Paivays')
-        date = datetime.strptime(date_el.text, '%Y-%m-%d')
-        attrs['start_date'] = date
-        attrs['end_date'] = date
+        if data1 is not None:
+            lasnaolotiedot = data1.find('Lasnaolotiedot')
+            attrs['attendees'] = self.import_attendees(lasnaolotiedot)
+
+            kokoustiedot = data1.find('Kokoustiedot')
+            attrs['location'] = self.gt(kokoustiedot, 'Kokouspaikka')
+
+            # format: dd.mm.yyyy hh:mm - hh:mm, extra stuff
+            time_raw = self.gt(kokoustiedot, 'Kokousaika').split(',')[0]
+
+            try:
+                date = time_raw.split(' - ')[0].strip()
+                endtime = time_raw.split(' - ')[1].strip()
+
+                start_date = LOCAL_TZ.localize(datetime.strptime(date, '%d.%m.%Y %H:%M'))
+                attrs['start_date'] = start_date
+
+                try:
+                    end_date = datetime.strptime(endtime, '%H:%M')
+                except ValueError:
+                    # there's one document with a . instead of : ...
+                    end_date = datetime.strptime(endtime, '%H.%M')
+
+                attrs['end_date'] = start_date.replace(hour=end_date.hour, minute=end_date.minute)
+            except:
+                attrs['start_date'] = None
+                attrs['end_date'] = None
+        else:
+            attrs.update({
+                'attendees': None,
+                'location': None,
+                'start_date': None,
+                'end_date': None
+            })
+
+        if data2 is not None:
+            attrs['name'] = '{} {}'.format(self.gt(data2, 'Paattaja'), self.gt(data2, 'Asiakirjatunnus'))
+        else:
+            attrs['name'] = None
 
         return attrs
 
@@ -257,19 +292,12 @@ class Document:
     def import_document(self, root):
         attrs = {}
 
+        event_metadata = root.find('PkKansilehtiSektio/KansilehtiToisto')
+        event_metadata2 = root.find('YlatunnisteSektio')
+
         actions = root.find('Paatokset')
-        metadata = root.find('Kuvailutiedot')
 
-        event_data = root.find('YlatunnisteSektio')
-        event_metadata = root.find('PkKansilehtiSektio')
-
-        if event_data is not None:
-            attrs['event'] = self.import_event(event_data)
-            if event_metadata is not None:
-                lasnaolotiedot = event_metadata.find('KansilehtiToisto/Lasnaolotiedot')
-                attrs['event']['attendees'] = self.import_attendees(lasnaolotiedot)
-        else:
-            self.critical("No event data")
+        attrs['event'] = self.import_event(event_metadata, event_metadata2)
 
         attrs['event']['actions'] = [self.import_action(ac) for ac in actions]
 
