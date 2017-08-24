@@ -58,6 +58,20 @@ class XmlParser:
 
     @classmethod
     def parse_funcid(cls, raw):
+        """
+        Parse given function id to a sensible format.
+
+        :type raw: str
+        :param raw:
+          The function id as it appears in Ahjo XMLs.
+          Example: 00 00 03 Valtuuston aloitetoiminta
+        :rtype: tuple(str, str)
+        :return:
+          A tuple with the number part and the text part.
+          With the given example this would be ('00 00 03',
+          'Valtuuston aloitetoiminta')
+        """
+
         if raw is None:
             return (None, None)
 
@@ -66,6 +80,15 @@ class XmlParser:
 
     @classmethod
     def parse_name(cls, name):
+        """
+        Parse human names
+
+        :type raw: str
+        :param raw: Name in the format 'last, first'
+        :rtype: str
+        :return: Name in the format 'first last'
+        """
+
         if ', ' in name:
             name = name.split(', ')
             name = '{} {}'.format(name[1], name[0])
@@ -74,6 +97,17 @@ class XmlParser:
 
     @classmethod
     def parse_guid(cls, raw):
+        """
+        Parse and validate GUIDs.
+
+        :type raw: str
+        :param raw:
+          GUID in the format {123E4567-E89B-12D3-A456-426655440000}
+        :rtype: str
+        :return: GUID in the format 123e4567-e89b-12d3-a456-426655440000
+        :raises ParseError: if the guid isn't in the specified format
+        """
+
         if raw is None:
             return None
 
@@ -85,12 +119,21 @@ class XmlParser:
 
     @classmethod
     def parse_datetime(cls, raw):
+        """
+        Parse timestamps appearing in the AHJO xml.
+
+        :type raw: str
+        :param raw: Timestamp in one of the specified formats
+        :rtype: datetime
+        :return: A localized datetime object
+        :raises ParseError: if the date isn't in any of the specified formats
+        """
+
         if raw is None:
             return None
 
         date = None
 
-        # it's important here that the 12h versions are before 24h versions
         formats = [
             '%m/%d/%Y %I:%M:%S %p',
             '%m/%d/%Y %H:%M:%S',
@@ -112,10 +155,27 @@ class XmlParser:
         return LOCAL_TZ.localize(date)
 
     @classmethod
-    def gt(cls, parent, el_name, log=lambda x: None, format=None):
+    def gt(cls, parent, el_name, log=lambda x: None, fmt=lambda x: x):
         """
-        Get text of an element.
+        Get text of an element. If the element doesn't exist, we
+        log something using the log parameter.
+
+        :type parent: Element
+        :param parent: Parent element where the element should be searched format
+
+        :type el_name: str
+        :param el_name: Name of the child element
+
+        :type log: function
+        :param log: Logger function to be called if the element isn't found
+
+        :type fmt: function
+        :param fmt: If present, will be called with the retrieved text
+
+        :rtype: str or None
+        :return: Text of an element if found. None otherwise.
         """
+
         el = parent.find(el_name)
         if el is None:
             log("Element {} not found".format(el_name))
@@ -126,12 +186,36 @@ class XmlParser:
                 log("Element {} is empty".format(el_name))
                 return content
 
-            if format is not None:
-                return format(content)
-            else:
-                return content
+            return fmt(content)
 
     def import_attendees(self, ctx, lasnaolotiedot):
+        """
+        Parse attendees of an event.
+
+        Simplified example structure::
+          <Lasnaolotiedot>
+            <Osallistujaryhma>
+                <OsallistujaryhmaOtsikko>Jäsenet</OsallistujaryhmaOtsikko>
+                <Osallistujat>
+                  <Nimi>Lastname, Firstname</Nimi>
+                  <Titteli>some title</Titteli>
+                  <OsallistujaOptiot>
+                    <Rooli>puheenjohtaja</Rooli>
+                  </OsallistujaOptiot>
+                </Osallistujat>
+          </Lasnaolotiedot>
+
+        Returned list::
+          [
+            {
+              'name': 'Firstname Lastname',
+              'role': 'puheenjohtaja',
+              'title': 'some title',
+              'category': 'participant'
+              }
+          ]
+        """
+
         ret = []
 
         attendee_group_els = lasnaolotiedot.findall('.//Osallistujaryhma')
@@ -171,6 +255,13 @@ class XmlParser:
         return ret
 
     def import_event(self, ctx, data1, data2):
+        """
+        Parse an event's metadata from the document.
+
+        A single document only contains one event, so this function
+        only exists to split the code around a little.
+        """
+
         attrs = {}
 
         if data1 is not None:
@@ -180,7 +271,12 @@ class XmlParser:
             kokoustiedot = data1.find('Kokoustiedot')
             attrs['location'] = self.gt(kokoustiedot, 'Kokouspaikka')
 
-            # format: dd.mm.yyyy hh:mm - hh:mm, extra stuff
+            # format: dd.mm.yyyy hh:mm - hh:mm, possible extra stuff
+
+            # This should be probably improved at some point but it's hard to Convert
+            # all cases because it's not standard in any way. Sometimes there are breaks
+            # or the event has been held in multiple sessions at different times. How
+            # would this even be represented in the database?
             time_raw = (self.gt(kokoustiedot, 'Kokousaika') or '').split(',')[0]
 
             try:
@@ -202,7 +298,7 @@ class XmlParser:
                 attrs['end_date'] = None
         else:
             attrs.update({
-                'attendees': None,
+                'attendees': [],
                 'location': None,
                 'start_date': None,
                 'end_date': None
@@ -216,6 +312,10 @@ class XmlParser:
         return attrs
 
     def import_content(self, ctx, content):
+        """
+        Parse the content section of a single action.
+        """
+
         if content is None:
             return None
 
@@ -239,6 +339,10 @@ class XmlParser:
             return s
 
     def import_action(self, ctx, action):
+        """
+        Parse a single action.
+        """
+
         attrs = {}
 
         metadata = action.find('KuvailutiedotOpenDocument')
@@ -258,7 +362,7 @@ class XmlParser:
             ctx.error("Action doesn't have an associated case")
 
         attrs['date'] = self.parse_datetime(self.gt(metadata, 'Paatospaiva', ctx.error))
-        attrs['article_number'] = self.gt(metadata, 'Pykala', ctx.error, format=int)
+        attrs['article_number'] = self.gt(metadata, 'Pykala', ctx.error, fmt=int)
 
         attrs['dnro'] = self.gt(metadata, 'Dnro/DnroLyhyt')
         if attrs['dnro'] is None and not vakiopaatos:
@@ -286,12 +390,16 @@ class XmlParser:
             attrs['attachments'].append({
                 'id': self.parse_guid(self.gt(a, 'LiitteetId')),
                 'name': self.gt(a, 'Liiteteksti'),
-                'ordering': int(self.gt(a, 'Liitenumero'))
+                'ordering': self.gt(a, 'Liitenumero', fmt=int)
             })
 
         return attrs
 
     def import_document(self, ctx, root):
+        """
+        Parse a single 'pöytäkirja' or 'viranhaltijan päätös'.
+        """
+
         attrs = {}
 
         event_metadata = root.find('PkKansilehtiSektio/KansilehtiToisto')
@@ -300,25 +408,35 @@ class XmlParser:
         actions = root.find('Paatokset')
 
         attrs['event'] = self.import_event(ctx, event_metadata, event_metadata2)
-
         attrs['event']['actions'] = [self.import_action(ctx, ac) for ac in actions]
 
-        # vain viranhaltijan päätöksissä?
+        # If this is a viranhaltijan päätös, we will add the
+        # viranhaltija as the only person to the attendees.
         signatures = root.find('SahkoinenAllekirjoitusSektio')
         if signatures is None:
             signatures = root.find('AllekirjoitusSektio')
             chairman = signatures.find('PuheenjohtajaSektio').find('PuheenjohtajaToisto')
-            attrs['chairman'] = chairman.find('Puheenjohtajanimi').text
+            name = chairman.find('Puheenjohtajanimi').text
+
+            if name not in [a['name'] for a in attrs['event']['attendees']]:
+                attrs['event']['attendees'].append({
+                    'name': name,
+                    'title': None,
+                    'role': 'viranhaltija',
+                    'category': None
+                })
 
         return attrs
 
     def import_esityslista(self, ctx, root):
+        # TODO
         pass
-        # attrs = {}
-
-        # actions = root.find('KasiteltavatAsiat')
 
     def parse(self, source, except_treshold=logging.CRITICAL):
+        """
+        Initiate parsing of a single document.
+        """
+
         filename = source if isinstance(source, str) else source.name
         ctx = ParseContext(filename, except_treshold)
 
@@ -336,6 +454,10 @@ class XmlParser:
 
 
 class ParseContext:
+    """
+    Helper class for easing the tracking of errors.
+    """
+
     def __init__(self, filename, except_treshold=logging.CRITICAL):
         self.filename = filename
         self.errors = []

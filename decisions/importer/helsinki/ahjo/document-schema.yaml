@@ -8,7 +8,6 @@ properties:
     additionalProperties: false
     #required: [event]  # FIXME: Correct required props for document?
     properties:
-      chairman: {type: string}
       event:
         properties:
           name: {type: string}
@@ -38,7 +37,7 @@ definitions:
     required: [name]
     properties:
       name: {type: string}
-      category: {type: string}
+      category: {type: [string, "null"]}
       role: {type: [string, "null"]}
       title: {type: [string, "null"]}
 
