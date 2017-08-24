@@ -181,7 +181,7 @@ class XmlParser:
             attrs['location'] = self.gt(kokoustiedot, 'Kokouspaikka')
 
             # format: dd.mm.yyyy hh:mm - hh:mm, extra stuff
-            time_raw = self.gt(kokoustiedot, 'Kokousaika').split(',')[0]
+            time_raw = (self.gt(kokoustiedot, 'Kokousaika') or '').split(',')[0]
 
             try:
                 date = time_raw.split(' - ')[0].strip()
