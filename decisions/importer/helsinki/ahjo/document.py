@@ -287,6 +287,15 @@ class Document:
         keywords = action.findall('Asiasana')
         attrs['keywords'] = [{'name': kw.text} for kw in keywords]
 
+        attrs['attachments'] = []
+        attachments = action.findall('LiitteetOptio/Liitteet/LiitteetToisto')
+        for a in attachments:
+            attrs['attachments'].append({
+                'id': Document.parse_guid(self.gt(a, 'LiitteetId')),
+                'name': self.gt(a, 'Liiteteksti'),
+                'ordering': int(self.gt(a, 'Liitenumero'))
+            })
+
         return attrs
 
     def import_document(self, root):
