@@ -1,11 +1,16 @@
 import datetime
 import json
 
+from .schema_validated import SchemaValidated
 
-class Document(object):
+
+class Document(SchemaValidated):
+    schema_file = 'document-schema.yaml'
+
     def __init__(self, data=None, errors=None):
         self._data = data or {}
         self._errors = errors or []
+        super(Document, self).__init__()
 
     def as_dict(self):
         return {

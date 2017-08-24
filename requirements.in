@@ -6,8 +6,12 @@ django-enumfields
 django-environ
 django-parler-rest
 django-easy-select2
+httpio
+jsonschema
 lxml
 pytz
+pyyaml
+
 # dev requirements:
 autoflake
 autopep8
@@ -21,4 +25,3 @@ pip-tools
 psycopg2
 django-filter
 djangorestframework-gis
-httpio

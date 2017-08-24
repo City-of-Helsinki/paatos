@@ -1,0 +1,64 @@
+$schema: http://json-schema.org/draft-04/schema#
+id: http://6aika.fi/paatos/decision-document-schema
+
+description: "Schema for decision document"
+
+properties:
+  document:
+    additionalProperties: false
+    #required: [event]  # FIXME: Correct required props for document?
+    properties:
+      chairman: {type: string}
+      event:
+        properties:
+          name: {type: string}
+          location: {type: [string, "null"]}
+          start_date: {type: "null"}
+          end_date: {type: "null"}
+          attendees: {type: array, items: {$ref: "#/definitions/attendee"}}
+          actions: {type: array, items: {$ref: "#/definitions/action"}}
+  errors:
+    type: array
+    items:
+      additionalProperties: false
+      required: [msg, severity, state]
+      properties:
+        msg: {type: string}
+        severity: {type: integer}
+        state:
+          additionalProperties: false
+          properties:
+            current_action: {type: [string, "null"]}
+            filename: {type: string}
+
+definitions:
+
+  attendee:
+    additionalProperties: false
+    required: [name]
+    properties:
+      name: {type: string}
+      category: {type: string}
+      role: {type: [string, "null"]}
+      title: {type: [string, "null"]}
+
+  action:
+    additionalProperties: false
+    required: [content]
+    properties:
+      case_guid: {type: [string, "null"]}
+      article_number: {type: [integer, "null"]}
+      attachments: {type: array, items: {$ref: "#/definitions/attachment"}}
+      title: {type: [string, "null"]}
+      date: {oneOf: [{type: string, format: date-time}, {type: "null"}]}
+      dnro: {type: [string, "null"]}
+      content: {type: string}
+      function_id: {type: [string, "null"]}
+      keywords: {type: array, items: {type: string}}
+      resolution: {type: string}
+
+  attachment:
+    properties:
+      id: {type: [string, "null"]}
+      name: {type: [string, "null"]}
+      ordering: {type: integer}
