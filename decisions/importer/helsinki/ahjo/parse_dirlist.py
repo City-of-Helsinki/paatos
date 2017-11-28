@@ -71,10 +71,11 @@ FILENAME_RX = re.compile(
     r'%20(?P<policymaker>.+)'
     r'%20(?P<meeting_nr>\d+)'
     r'%20(?P<doc_type_id>.+)'
-    r'%20?(?P<language>[^.].+)?'
+    r'%20?(?P<language_id>[^.].+)?'
     r'\.zip$')
 
 DOC_TYPES = {'Pk': 'minutes', 'El': 'agenda'}
+LANGUAGES = {'Su': 'fi', 'Ru': 'sv'}
 
 
 def parse_file_path(path):
@@ -94,6 +95,7 @@ def parse_file_path(path):
     info['policymaker_id'] = policymaker_id
     info['policymaker_abbr'] = info['policymaker']
     info['doc_type'] = DOC_TYPES[info['doc_type_id']]
+    info['language'] = LANGUAGES[info['language_id']]
     info['origin_id'] = (
         '{org}_{policymaker}_{year}-{meeting_nr}_{doc_type_id}'.format(**info))
 

@@ -1,5 +1,3 @@
-import sys
-
 from django.core.management.base import BaseCommand
 
 from decisions.importer.helsinki import ahjo
@@ -9,13 +7,11 @@ class Command(BaseCommand):
     help = 'Imports'
 
     def add_arguments(self, parser):
-        pass
-        # parser.add_argument('filename', type=str)
+        parser.add_argument(
+            'root', type=str, help=(
+                "Root path of the import, "
+                "e.g. /files or /files/Asuntolautakunta_60014"))
 
-    def handle(self, *args, **options):
-        for filename in sys.stdin:
-            filename = filename.strip()
-            print(filename)
-            document = ahjo.parse_xml(filename)
-            print(document.as_json())
-            print()
+    def handle(self, root, *args, **options):
+        db_importer = ahjo.DatabaseImporter()
+        db_importer.import_changes(root)

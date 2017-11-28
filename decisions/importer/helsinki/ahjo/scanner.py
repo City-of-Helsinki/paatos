@@ -74,7 +74,7 @@ class Scanner(object):
         return False
 
     def _should_skip_document(self, doc_info):
-        if doc_info.language != 'Su':
+        if doc_info.language != 'fi':
             # Skip non-Finnish documents (i.e. Swedish)
             return True
         if doc_info.origin_id in self.docs_to_skip:

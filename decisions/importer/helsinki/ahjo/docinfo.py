@@ -44,7 +44,7 @@ class DocumentInfo(object):
             raise ValueError("Invalid filename: {}".format(path))
         if not data.get('language'):
             LOG.debug("Language field missing in %s", path)
-            data['language'] = 'Su'
+            data['language'] = 'fi'
         return data
 
     def __repr__(self):

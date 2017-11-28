@@ -50,6 +50,21 @@ class ParseError(Exception):
     pass
 
 
+DATE_RANGE_RX = re.compile(
+    # Optional day prefix, e.g. 'Tiistai ' or ''
+    r'(?:\w+ )?'
+    # Date, e.g. '29.8.2017' = GROUP 1
+    r'(\d{1,2}.\d{1,2}.\d{4})'
+    # Optional clock word, e.g. 'kello ', 'klo ', 'klockan ', or ''
+    r' (?:\w+ )?'
+    # Start time, e.g. '7:25' = GROUP 2
+    r'(\d{1,2}[:.]\d\d)'
+    # Separator dash, e.g. ' - ' or '-'
+    r' ?- ?'
+    # End time, e.g. '9:40' = GROUP 3
+    r'(\d{1,2}[:.]\d\d)')
+
+
 class XmlParser:
     @classmethod
     def clean_html(cls, raw):
@@ -155,6 +170,27 @@ class XmlParser:
         return LOCAL_TZ.localize(date)
 
     @classmethod
+    def parse_datetime_range(cls, raw):
+        """
+        Parse datetime range string to a pair of datetimes.
+
+        :type raw: str|None
+        :rtype: (datetime.datetime, datetime.datetime)|None
+        """
+        m = DATE_RANGE_RX.match(raw or '')
+        if not m:
+            return None
+        date_str = m.group(1)
+        start_str = date_str + ' ' + m.group(2).replace('.', ':')
+        end_str = date_str + ' ' + m.group(3).replace('.', ':')
+        try:
+            start = datetime.datetime.strptime(start_str, '%d.%m.%Y %H:%M')
+            end = datetime.datetime.strptime(end_str, '%d.%m.%Y %H:%M')
+        except ValueError:
+            return None
+        return (start, end)
+
+    @classmethod
     def gt(cls, parent, el_name, log=lambda x: None, fmt=lambda x: x):
         """
         Get text of an element. If the element doesn't exist, we
@@ -236,19 +272,12 @@ class XmlParser:
 
                 opts = attendee.find('OsallistujaOptiot')
                 if opts is not None:
-                    a_attrs['role'] = self.gt(opts, 'Rooli')
-                else:
-                    a_attrs['role'] = None
+                    _set_if_non_empty(a_attrs, 'role', self.gt(opts, 'Rooli'))
 
-                a_attrs['title'] = self.gt(attendee, 'Titteli')
+                _set_if_non_empty(a_attrs, 'title', self.gt(attendee, 'Titteli'))
 
-                if group_name is not None:
-                    try:
-                        a_attrs['category'] = ATTENDEE_MAP[group_name.lower()]
-                    except KeyError:
-                        continue
-                else:
-                    a_attrs['category'] = 'participant'
+                category = ATTENDEE_MAP.get((group_name or '').lower())
+                a_attrs['category'] = (category or 'participant')
 
                 ret.append(a_attrs)
 
@@ -269,7 +298,9 @@ class XmlParser:
             attrs['attendees'] = self.import_attendees(ctx, lasnaolotiedot)
 
             kokoustiedot = data1.find('Kokoustiedot')
-            attrs['location'] = self.gt(kokoustiedot, 'Kokouspaikka')
+            location = self.gt(kokoustiedot, 'Kokouspaikka')
+            if location:
+                attrs['location'] = location
 
             # format: dd.mm.yyyy hh:mm - hh:mm, possible extra stuff
 
@@ -277,37 +308,26 @@ class XmlParser:
             # all cases because it's not standard in any way. Sometimes there are breaks
             # or the event has been held in multiple sessions at different times. How
             # would this even be represented in the database?
-            time_raw = (self.gt(kokoustiedot, 'Kokousaika') or '').split(',')[0]
-
-            try:
-                date = time_raw.split(' - ')[0].strip()
-                endtime = time_raw.split(' - ')[1].strip()
-
-                start_date = LOCAL_TZ.localize(datetime.strptime(date, '%d.%m.%Y %H:%M'))
-                attrs['start_date'] = start_date
-
-                try:
-                    end_date = datetime.datetime.strptime(endtime, '%H:%M')
-                except ValueError:
-                    # there's one document with a . instead of : ...
-                    end_date = datetime.datetime.strptime(endtime, '%H.%M')
-
-                attrs['end_date'] = start_date.replace(hour=end_date.hour, minute=end_date.minute)
-            except:
-                attrs['start_date'] = None
-                attrs['end_date'] = None
-        else:
-            attrs.update({
-                'attendees': [],
-                'location': None,
-                'start_date': None,
-                'end_date': None
-            })
+            datetime_str = self.gt(kokoustiedot, 'Kokousaika')
+            date_range = self.parse_datetime_range(datetime_str)
+            if date_range:
+                attrs['start_date'] = LOCAL_TZ.localize(date_range[0])
+                attrs['end_date'] = LOCAL_TZ.localize(date_range[1])
 
         if data2 is not None:
             attrs['name'] = '{} {}'.format(self.gt(data2, 'Paattaja'), self.gt(data2, 'Asiakirjatunnus'))
         else:
-            attrs['name'] = None
+            attrs['name'] = ''
+
+        if not attrs.get('start_date') and data2 is not None:
+            date_str = self.gt(data2, 'Paivays')
+            if date_str:
+                date = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+                attrs['start_date'] = LOCAL_TZ.localize(date)
+                attrs['end_date'] = LOCAL_TZ.localize(date)
+
+        if not attrs.get('start_date') or not attrs.get('end_date'):
+            raise ParseError('No date information found')
 
         return attrs
 
@@ -355,18 +375,27 @@ class XmlParser:
         attrs['title'] = self.gt(metadata, 'Otsikko', ctx.warning)
         ctx.current_action = attrs['title']
 
-        attrs['function_id'] = self.parse_funcid(self.gt(metadata, 'Tehtavaluokka', ctx.warning))[0]
+        (function_id, function_name) = self.parse_funcid(
+            self.gt(metadata, 'Tehtavaluokka', ctx.warning))
+        _set_if_non_empty(attrs, 'function_id', function_id)
+        _set_if_non_empty(attrs, 'function_name', function_name)
 
-        attrs['case_guid'] = self.parse_guid(self.gt(metadata, 'AsiaGuid'))
-        if attrs['case_guid'] is None and not vakiopaatos:
+        case_guid = self.parse_guid(self.gt(metadata, 'AsiaGuid'))
+        if case_guid is None and not vakiopaatos:
             ctx.error("Action doesn't have an associated case")
+        _set_if_non_empty(attrs, 'case_guid', case_guid)
 
-        attrs['date'] = self.parse_datetime(self.gt(metadata, 'Paatospaiva', ctx.error))
-        attrs['article_number'] = self.gt(metadata, 'Pykala', ctx.error, fmt=int)
+        _set_if_non_empty(
+            attrs, 'date',
+            self.parse_datetime(self.gt(metadata, 'Paatospaiva', ctx.error)))
+        article_number = self.gt(metadata, 'Pykala', ctx.error, fmt=int)
+        if article_number is not None:
+            attrs['article_number'] = article_number
 
-        attrs['dnro'] = self.gt(metadata, 'Dnro/DnroLyhyt')
-        if attrs['dnro'] is None and not vakiopaatos:
-            ctx.error("Action doesn't have a journal number (diaarinumero)")
+        register_id = self.gt(metadata, 'Dnro/DnroLyhyt')
+        if register_id is None and not vakiopaatos:
+            ctx.error("Action doesn't have a register id (diaarinumero)")
+        _set_if_non_empty(attrs, 'register_id', register_id)
 
         resolution_el = metadata.find('Asiakirjantila')
 
@@ -407,6 +436,7 @@ class XmlParser:
 
         actions = root.find('Paatokset')
 
+        attrs['type'] = 'minutes'
         attrs['event'] = self.import_event(ctx, event_metadata, event_metadata2)
         attrs['event']['actions'] = [self.import_action(ctx, ac) for ac in actions]
 
@@ -421,16 +451,13 @@ class XmlParser:
             if name not in [a['name'] for a in attrs['event']['attendees']]:
                 attrs['event']['attendees'].append({
                     'name': name,
-                    'title': None,
                     'role': 'viranhaltija',
-                    'category': None
                 })
 
         return attrs
 
     def import_esityslista(self, ctx, root):
-        # TODO
-        pass
+        raise NotImplementedError("Parsing of agendas is not implemented")
 
     def parse(self, source, except_treshold=logging.CRITICAL):
         """
@@ -451,6 +478,11 @@ class XmlParser:
             raise ValueError("Unknown root tag: {!r}".format(root.tag))
 
         return Document(data, ctx.errors)
+
+
+def _set_if_non_empty(mapping, key, value):
+    if value:
+        mapping[key] = value
 
 
 class ParseContext:
