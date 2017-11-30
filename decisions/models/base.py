@@ -2,12 +2,13 @@
 
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
+from django.utils import timezone
 
 
 class BaseModel(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True, editable=False,
+    created_at = models.DateTimeField(default=timezone.now, editable=False,
                                       help_text=_('The time at which the resource was created'))
-    modified_at = models.DateTimeField(auto_now=True, editable=False,
+    modified_at = models.DateTimeField(default=timezone.now, editable=False,
                                        help_text=_('The time at which the resource was updated'))
 
     class Meta:

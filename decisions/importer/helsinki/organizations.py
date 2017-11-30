@@ -2,6 +2,8 @@
 # Based heavily on https://github.com/City-of-Helsinki/openahjo/blob/4bcb003d5db932ca28ea6851d76a20a4ee6eef54/decisions/importer/helsinki.py  # noqa
 
 import json
+import datetime
+import pytz
 from enum import Enum
 
 from dateutil.parser import parse as dateutil_parse
@@ -10,8 +12,9 @@ from django.utils.text import slugify
 
 from decisions.models import DataSource, OrganizationClass, Person
 
-from .base import Importer
+from ..base import Importer
 
+LOCAL_TZ = pytz.timezone('Europe/Helsinki')
 
 class Org(Enum):
     COUNCIL = 1
@@ -58,16 +61,6 @@ NAME_MAP = {
 }
 
 
-PARENT_OVERRIDES = {
-    'Kiinteistövirasto': '100',  # Kaupunkisuunnittelu- ja kiinteistötoimi'
-    'Kaupunginhallituksen konsernijaosto': '00400',   # Kaupunginhallitus
-    'Opetusvirasto': '301',  # Sivistystoimi,
-    'Kaupunkisuunnitteluvirasto': '100',  # Kaupunkisuunnittelu- ja kiinteistötoimi'
-    'Sosiaali- ja terveysvirasto': '400',  # Sosiaali- ja terveystoimi
-    'Kaupunginkanslia': '00001',  # Helsingin kaupunki
-}
-
-
 class HelsinkiImporter(Importer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -94,17 +87,14 @@ class HelsinkiImporter(Importer):
         """
         org['name'] = info['name_fin']
 
+        if org['origin_id'] == '500':
+            # Strange "Puheenjohtaja" organization
+            assert org['name'] == 'Puheenjohtaja'
+            self.skip_orgs.add(org['origin_id'])
+            return
+
         if info['shortname']:
             org['abbreviation'] = info['shortname']
-
-        # FIXME: Use maybe sometime
-        """
-        DUPLICATE_ABBREVS = [
-            'AoOp', 'Vakaj', 'Talk', 'KIT', 'HTA', 'Ryj', 'Pj', 'Sotep', 'Hp',
-            'Kesvlk siht', 'Kulttj', 'HVI', 'Sostap', 'KOT',
-            'Lsp', 'Kj', 'KYT', 'AST', 'Sote', 'Vp', 'HHE', 'Tj', 'HAKE', 'Ko'
-        ]
-        """
 
         if org_type in (Org.COUNCIL, Org.COMMITTEE, Org.BOARD_DIVISION, Org.BOARD):
             org['slug'] = slugify(org['abbreviation'])
@@ -132,24 +122,26 @@ class HelsinkiImporter(Importer):
                 z = "00%s0" % z
             cd['postcode'] = z
             org['contact_details'].append(cd)
-        org['modified_at'] = dateutil_parse(info['modified_time'])
 
-        parents = []
-        if org['name'] in PARENT_OVERRIDES:
-            parent = PARENT_OVERRIDES[org['name']]
+        org['modified_at'] = LOCAL_TZ.localize(dateutil_parse(info['modified_time']))
+
+        # Remove orgs that are actually posts from the org hierarchy
+        if org_type in [Org.OFFICE_HOLDER, Org.TRUSTEE]:
+            for child in info.get('children', []):
+                assert child['parent'] == info['id']
+                child['parent'] = org.get('parent', None)
+            info['children'] = []
+
+        parent = info['parent']
+        if parent:
+            assert parent['id'] not in self.skip_orgs
+            parent_type = Org(parent['type'])
+            assert parent_type not in [Org.OFFICE_HOLDER, Org.TRUSTEE]
+            parent_id = parent['id']
         else:
-            parent = None
-            if info['parents'] is not None:
-                parents = info['parents']
-                try:
-                    parent = parents[0]
-                except IndexError:
-                    pass
+            parent_id = None
 
-        if parent not in self.skip_orgs:
-            if len(parents) > 1:
-                self.logger.warning('Org %s has multiple parents %s, choosing the first one' % (org['name'], parents))
-            org['parent'] = parent
+        org['parent_id'] = parent_id
 
         org['memberships'] = []
         if self.options['include_people']:
@@ -168,9 +160,19 @@ class HelsinkiImporter(Importer):
                 ))
 
         if org_type in [Org.OFFICE_HOLDER, Org.TRUSTEE]:
-            self.save_post(org)
+            org['entity_type'] = 'post'
+            rename_fields = {
+                'name': 'label',
+                'founding_date': 'start_date',
+                'dissolution_date': 'end_date',
+                'parent_id': 'organization_id'
+            }
+            for a, b in rename_fields.items():
+                org[b] = org.pop(a)
         else:
-            self.save_organization(org)
+            org['entity_type'] = 'org'
+            org['posts'] = []
+        return org
 
     def import_organizations(self, filename):
         self.logger.info('Updating organization class definitions...')
@@ -186,31 +188,58 @@ class HelsinkiImporter(Importer):
         with open(filename, 'r') as org_file:
             org_list = json.load(org_file)
 
-        if not self.options['include_people']:
-            Person.objects.all().delete()
+        date_now = datetime.datetime.now().strftime('%Y-%m-%d')
+        for org in org_list:
+            org['children'] = []
+            if not org['parents']:
+                org['parent'] = None
+                del org['parents']
+                continue
+            parents = [p for p in org['parents'] if p['primary']]
+            active_parent = None
+            last_parent = parents[0]
+            for p in parents:
+                if p['end_time'] is None or p['end_time'] > date_now:
+                    active_parent = p
+                if last_parent['end_time'] and (p['end_time'] is None or p['end_time'] > last_parent['end_time']):
+                    last_parent = p
+            assert active_parent is None or last_parent == active_parent
+            del org['parents']
+            org['parent'] = last_parent['id']
 
         self.skip_orgs = set()
 
         self.org_dict = {org['id']: org for org in org_list}
-        ordered = []
-        # Start import from the root orgs, move down level by level.
-        while len(ordered) != len(org_list):
-            for org in org_list:
-                if 'added' in org:
-                    continue
-                if not org['parents']:
-                    org['added'] = True
-                    ordered.append(org)
-                    continue
-                for p in org['parents']:
-                    if 'added' not in self.org_dict[p]:
-                        break
-                else:
-                    org['added'] = True
-                    ordered.append(org)
+        roots = []
+        for org in org_list:
+            if not org['parent']:
+                roots.append(org)
+                continue
+            self.org_dict[org['parent']]['children'].append(org)
 
-        for i, org in enumerate(ordered):
-            self.logger.info('Processing organization {} / {}'.format(i + 1, len(ordered)))
-            self._import_organization(org)
+        output_org_list = []
+        output_post_list = []
+
+        def import_nested(parent, org):
+            output_org = self._import_organization(org)
+            if not output_org:
+                return
+
+            entity_type = output_org.pop('entity_type')
+            if entity_type == 'post':
+                output_post_list.append(output_org)
+                return
+
+            output_org_list.append(output_org)
+            for child in org['children']:
+                assert child['parent'] == org['id']
+                child['parent'] = org
+                import_nested(output_org, child)
+
+        for root in roots:
+            import_nested(None, root)
+
+        self.update_organizations(output_org_list)
+        self.update_posts(output_post_list)
 
         self.logger.info('Import done!')

@@ -9,6 +9,9 @@ from .base import DataModel
 class OrganizationClass(models.Model):
     name = models.CharField(max_length=255, null=True)
 
+    def __str__(self):
+        return self.name
+
 
 class Organization(DataModel):
     classification = models.ForeignKey(
