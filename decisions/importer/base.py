@@ -6,7 +6,7 @@ import struct
 
 from django.db import transaction
 
-from decisions.models import Membership, Organization, Person, Post
+from decisions.models import Membership, Organization, OrganizationClass, Person, Post, PostClass
 from .sync import ModelSyncher
 
 
@@ -22,8 +22,9 @@ class Importer(object):
         return re.sub(r'\s\s+', ' ', text, re.U).strip()
 
     def _set_field(self, obj, field_name, val):
+        field = obj._meta.get_field(field_name)
         if not hasattr(obj, field_name):
-            raise Exception("Object %s doesn't have '%s' field" % (obj, field_name))
+            raise Exception("Object %s doesn't have '%s' field" % (type(obj), field_name))
 
         obj_val = getattr(obj, field_name)
         if isinstance(obj_val, datetime.datetime) and isinstance(val, str):
@@ -41,7 +42,6 @@ class Importer(object):
         if obj_val == val:
             return
 
-        field = obj._meta.get_field(field_name)
         if field.get_internal_type() == 'CharField' and val is not None:
             if len(val) > field.max_length:
                 raise Exception("field '%s' too long (max. %d): %s" % field_name, field.max_length, val)
@@ -51,6 +51,8 @@ class Importer(object):
         obj._changed_fields.append(field_name)
 
     def _update_fields(self, obj, data, skip_fields=[]):
+        data = data.copy()
+
         if not hasattr(obj, '_changed_fields'):
             obj._changed_fields = []
         obj_fields = list(obj._meta.fields)
@@ -60,11 +62,18 @@ class Importer(object):
                     obj_fields.remove(f)
                     break
 
+        # Make sure object supports all incoming fields
+        field_names = []
         for field in obj_fields:
             field_name = field.name
+            if field.is_relation:
+                field_name = field_name + '_id'
             if field_name not in data:
                 continue
-            self._set_field(obj, field_name, data[field_name])
+            self._set_field(obj, field_name, data.pop(field_name))
+
+        if data:
+            raise Exception("%s doesn't support fields %s" % (type(obj), ', '.join(data.keys())))
 
     def _generate_id(self):
         t = datetime.time.time() * 1000000
@@ -105,9 +114,19 @@ class Importer(object):
         return membership
 
     def save_organization(self, obj, info):
-        info.pop('memberships', [])
-
+        info.pop('memberships', None)
+        info.pop('contact_details', None)
         info['data_source_id'] = self.data_source.id
+
+        classification = info.pop('classification', None)
+        if classification:
+            if hasattr(self, 'org_class_by_id'):
+                classification_id = self.org_class_by_id[classification].id
+            else:
+                classification_id = OrganizationClass.objects.get(
+                    data_source=self.data_source, origin_id=classification
+                ).id
+            info['classification_id'] = classification_id
 
         self._update_fields(obj, info)
 
@@ -118,9 +137,20 @@ class Importer(object):
             obj.save()
 
     def save_post(self, obj, info):
-        info.pop('memberships', [])
+        info.pop('memberships', None)
+        info.pop('contact_details', None)
 
         info['data_source_id'] = self.data_source.id
+
+        classification = info.pop('classification', None)
+        if classification:
+            if hasattr(self, 'post_class_by_id'):
+                classification_id = self.post_class_by_id[classification].id
+            else:
+                classification_id = PostClass.objects.get(
+                    data_source=self.data_source, origin_id=classification
+                ).id
+            info['classification_id'] = classification_id
 
         self._update_fields(obj, info)
 
@@ -142,6 +172,13 @@ class Importer(object):
             if not org_obj:
                 org_obj = Organization(data_source=self.data_source, origin_id=origin_id)
             syncher.mark(org_obj)
+
+            parent_id = org_info.get('parent_id')
+            if parent_id:
+                parent_obj = syncher.get(parent_id)
+                assert parent_obj is not None
+                org_info['parent_id'] = parent_obj.id
+
             self.save_organization(org_obj, org_info)
 
         syncher.finish()
@@ -150,6 +187,8 @@ class Importer(object):
     def update_posts(self, posts):
         post_qs = Post.objects.filter(data_source=self.data_source)
         syncher = ModelSyncher(queryset=post_qs, generate_obj_id=lambda x: x.origin_id, delete_limit=0.1)
+        org_qs = Organization.objects.filter(data_source=self.data_source)
+        orgs_by_id = {x.origin_id: x for x in org_qs}
 
         for post in posts:
             post = post.copy()
@@ -158,6 +197,12 @@ class Importer(object):
             if not obj:
                 obj = Post(data_source=self.data_source, origin_id=origin_id)
             syncher.mark(obj)
+
+            organization_id = post['organization_id']
+            if organization_id:
+                org_obj = orgs_by_id[organization_id]
+                post['organization_id'] = org_obj.id
+
             self.save_post(obj, post)
 
         syncher.finish()

@@ -24,7 +24,9 @@ class DataSource(BaseModel):
 
 
 class DataModel(BaseModel):
-    data_source = models.ForeignKey(DataSource, blank=True, null=True, db_index=True)
+    data_source = models.ForeignKey(
+        DataSource, blank=True, null=True, db_index=True, on_delete=models.PROTECT
+    )
     origin_id = models.CharField(max_length=255, blank=True, null=True, db_index=True)
 
     class Meta:
@@ -34,7 +36,8 @@ class DataModel(BaseModel):
 
 class ImportedFile(BaseModel):
     data_source = models.ForeignKey(
-        DataSource, blank=True, null=True, db_index=True)
+        DataSource, blank=True, null=True, db_index=True, on_delete=models.PROTECT
+    )
     path = models.CharField(max_length=2000, db_index=True)
     imported_version = models.CharField(max_length=100)
 

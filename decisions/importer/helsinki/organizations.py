@@ -10,11 +10,12 @@ from dateutil.parser import parse as dateutil_parse
 from django.db import transaction
 from django.utils.text import slugify
 
-from decisions.models import DataSource, OrganizationClass, Person
+from decisions.models import DataSource, OrganizationClass, Person, PostClass
 
 from ..base import Importer
 
 LOCAL_TZ = pytz.timezone('Europe/Helsinki')
+
 
 class Org(Enum):
     COUNCIL = 1
@@ -75,7 +76,7 @@ class HelsinkiImporter(Importer):
     def _import_organization(self, info):
         org_type = Org(info['type'])
         org = dict(origin_id=info['id'])
-        org['classification'] = OrganizationClass.objects.get(id=org_type.value)
+        org['classification'] = str(org_type.value)
 
         if org_type in [Org.INTRODUCER, Org.INTRODUCER_FIELD, Org.PACKAGED_INTRODUCER_SERVICE]:
             self.skip_orgs.add(org['origin_id'])
@@ -171,17 +172,32 @@ class HelsinkiImporter(Importer):
                 org[b] = org.pop(a)
         else:
             org['entity_type'] = 'org'
-            org['posts'] = []
         return org
 
-    def import_organizations(self, filename):
+    def _import_organization_classes(self):
         self.logger.info('Updating organization class definitions...')
+        self.org_class_by_id = {}
+        self.post_class_by_id = {}
         for enum, names in NAME_MAP.items():
-            values = {
-                'id': enum.value,
-                'name': names[0]
-            }
-            klass, updated = OrganizationClass.objects.update_or_create(id=values['id'], defaults=values)
+            if enum in (Org.INTRODUCER, Org.INTRODUCER_FIELD, Org.TRUSTEE, Org.OFFICE_HOLDER):
+                kls = PostClass
+                by_id_dict = self.post_class_by_id
+            else:
+                kls = OrganizationClass
+                by_id_dict = self.org_class_by_id
+
+            try:
+                obj = kls.objects.get(data_source=self.data_source, origin_id=str(enum.value))
+            except kls.DoesNotExist:
+                obj = kls(data_source=self.data_source, origin_id=str(enum.value))
+
+            if obj.name != names[0]:
+                obj.name = names[0]
+                obj.save()
+            by_id_dict[obj.origin_id] = obj
+
+    def import_organizations(self, filename):
+        self._import_organization_classes()
 
         self.logger.info('Importing organizations...')
 

@@ -4,7 +4,7 @@ from django.db import transaction
 
 from ....models import (
     Action, Case, Content, DataSource, Event, Function, ImportedFile,
-    Organization, OrganizationClass, Person)
+    Organization, Post, OrganizationClass, Person)
 from .importer import ChangeImporter
 
 LOG = logging.getLogger(__name__)
@@ -17,12 +17,14 @@ class DatabaseImporter(ChangeImporter):
     def __init__(self, data_source=None):
         if data_source is None:
             (data_source, _created) = DataSource.objects.get_or_create(
-                identifier='ahjo_xml', defaults={'name': 'Ahjo XML'})
+                identifier='helsinki', defaults={'name': 'Helsinki'})
         self.data_source = data_source
+        self.orgs_by_id = {x.origin_id: x for x in Organization.objects.filter(data_source=data_source)}
+        self.posts_by_id = {x.origin_id: x for x in Post.objects.filter(data_source=data_source)}
 
     def should_import(self, doc_info):
         # Currently only "minutes" are imported, "agenda" is not.
-        should_import = (doc_info.doc_type == 'minutes')
+        should_import = (doc_info.doc_type == 'minutes') and 'VH' not in doc_info.policymaker_id
         if not should_import:
             LOG.debug("Skipping %s: %s", doc_info.doc_type, doc_info.origin_id)
         return should_import
@@ -54,17 +56,19 @@ class DatabaseImporter(ChangeImporter):
         self._import_document(doc_info, doc)
 
     def _import_document(self, doc_info, doc):
+        # Skip office-holder documents for now
         event = self._import_event(doc_info, doc)
         self._import_attendees(doc, event)
         self._import_actions(doc, event)
 
     def _import_event(self, doc_info, doc):
         policymaker_id = doc_info.policymaker_id
+        org = self.orgs_by_id[policymaker_id]
         defaults = {
             'name': doc.event.name,
             'start_date': doc.event.start_date,
             'end_date': doc.event.end_date,
-            'organization': self._get_or_create_organization(policymaker_id),
+            'organization_id': org.id,
         }
         (event, created) = Event.objects.update_or_create(
             data_source=self.data_source,
@@ -72,24 +76,6 @@ class DatabaseImporter(ChangeImporter):
             defaults=defaults)
         _log_update_or_create(event, created, logging.INFO)
         return event
-
-    def _get_or_create_organization(self, policymaker_id):
-        (organization, created) = Organization.objects.get_or_create(
-            origin_id=policymaker_id, defaults={
-                'name': str(policymaker_id),
-                'classification': self._dummy_organization_class,
-            })
-        _log_update_or_create(organization, created)
-        return organization
-
-    @property
-    def _dummy_organization_class(self):
-        if not hasattr(self, '_cached_dummy_organization_class'):
-            (org_class, created) = OrganizationClass.objects.get_or_create(
-                name='dummy')
-            _log_update_or_create(org_class, created)
-            self._cached_dummy_organization_class = org_class
-        return self._cached_dummy_organization_class
 
     def _import_attendees(self, doc, event):
         imported_attendees = set()

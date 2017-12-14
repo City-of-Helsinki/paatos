@@ -1,7 +1,7 @@
 from .base import DataSource, ImportedFile
 from .case import Action, Attachment, Case, CaseGeometry, Content, Function
 from .meeting import Event
-from .organization import Organization, OrganizationClass, Post
+from .organization import Organization, OrganizationClass, Post, PostClass
 from .person import Membership, Person
 
 __all__ = [
@@ -19,4 +19,5 @@ __all__ = [
     'OrganizationClass',
     'Person',
     'Post',
+    'PostClass',
 ]
