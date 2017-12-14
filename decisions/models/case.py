@@ -45,6 +45,9 @@ class Case(DataModel):
     geometries = models.ManyToManyField(CaseGeometry, related_name='cases', blank=True,
                                         help_text=_('Geometries related to this case'))
 
+    class Meta:
+        ordering = ['id']
+
     def __str__(self):
         return self.title
 
@@ -65,6 +68,9 @@ class Action(DataModel):
                               null=True, blank=True)
     date = models.DateTimeField(help_text=_('Date and time this decision was made at'), null=True)
 
+    class Meta:
+        ordering = ['id']
+
     def __str__(self):
         return self.title
 
@@ -79,6 +85,9 @@ class Content(DataModel):
         'These are: first and second level headings (P+H1+H2) and table (more may be added, '
         'but start from a minimal set)'))
     action = models.ForeignKey(Action, related_name='contents', help_text=_('Action that this content describes'))
+
+    class Meta:
+        ordering = ['id']
 
     def __str__(self):
         return '%s %s' % (self.action, self.ordering)
@@ -99,4 +108,4 @@ class Attachment(DataModel):
         return '%s %s' % (self.name, self.action)
 
     class Meta:
-        ordering = ('number',)
+        ordering = ('action', 'number',)

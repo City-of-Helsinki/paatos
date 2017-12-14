@@ -9,6 +9,9 @@ from .base import DataModel
 class OrganizationClass(DataModel):
     name = models.CharField(max_length=255, null=True)
 
+    class Meta:
+        ordering = ['id']
+
     def __str__(self):
         return self.name
 
@@ -29,6 +32,9 @@ class Organization(DataModel):
                                blank=True)
     # FIXME: Add contact details
 
+    class Meta:
+        ordering = ['id']
+
     def __str__(self):
         if self.parent:
             return '%s / %s' % (self.parent, self.name)  # TODO cache
@@ -38,6 +44,9 @@ class Organization(DataModel):
 
 class PostClass(DataModel):
     name = models.CharField(max_length=255, null=True)
+
+    class Meta:
+        ordering = ['id']
 
     def __str__(self):
         return self.name
@@ -57,6 +66,9 @@ class Post(DataModel):
                                      help_text=_('The organization in which the post is held'))
     start_date = models.DateField(help_text=_('The date on which the post was created'), null=True, blank=True)
     end_date = models.DateField(help_text=_('The date on which the post was eliminated'), null=True, blank=True)
+
+    class Meta:
+        ordering = ['id']
 
     def __str__(self):
         return '%s / %s' % (self.organization, self.label)  # TODO cache

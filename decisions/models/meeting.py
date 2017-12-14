@@ -15,6 +15,9 @@ class Event(DataModel):
     start_date = models.DateTimeField(help_text=_('The time at which the event starts'))
     end_date = models.DateTimeField(help_text=_('The time at which the event ends'), blank=True, null=True)
 
+    class Meta:
+        ordering = ['id']
+
     def __str__(self):
         return '%s %s' % (self.start_date, self.organization)
 
