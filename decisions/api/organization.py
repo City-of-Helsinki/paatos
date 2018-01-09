@@ -5,7 +5,7 @@ from decisions.models import Event, Organization, OrganizationClass, Post
 from .base import DataModelSerializer
 
 
-class OrganizationClassSerializer(serializers.ModelSerializer):
+class OrganizationClassSerializer(DataModelSerializer):
     class Meta:
         model = OrganizationClass
         fields = '__all__'
