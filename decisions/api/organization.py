@@ -8,7 +8,7 @@ from .base import DataModelSerializer
 class OrganizationClassSerializer(DataModelSerializer):
     class Meta:
         model = OrganizationClass
-        fields = '__all__'
+        exlude = ('url',)
 
 
 class OrganizationSerializer(DataModelSerializer):
