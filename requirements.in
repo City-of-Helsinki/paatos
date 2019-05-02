@@ -19,9 +19,9 @@ coveralls
 flake8
 flake8-isort
 pytest-cov
-pytest-django
-pytest-factoryboy
-pip-tools
+pytest-django>3.4
+pytest-factoryboy>2
+pip-tools>3
 psycopg2
 django-filter
 djangorestframework-gis
