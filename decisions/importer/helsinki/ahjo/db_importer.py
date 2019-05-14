@@ -63,12 +63,23 @@ class DatabaseImporter(ChangeImporter):
 
     def _import_event(self, doc_info, doc):
         policymaker_id = doc_info.policymaker_id
-        org = self.orgs_by_id[policymaker_id]
+        org = self.orgs_by_id.get(policymaker_id, None)
+        post = None
+        if not org:
+            print(policymaker_id)
+            # the policymaker is most likely a post instead!
+            post = self.posts_by_id.get(policymaker_id, None)
+            # in this case, the organization is the parent of the post
+            if post:
+                org = post.organization
+            else:
+                LOG.warning("Unknown post or organization %s", policymaker_id)
         defaults = {
             'name': doc.event.name,
             'start_date': doc.event.start_date,
             'end_date': doc.event.end_date,
-            'organization_id': org.id,
+            'organization_id': getattr(org, 'id', None),
+            'post_id': getattr(post, 'id', None),
         }
         (event, created) = Event.objects.update_or_create(
             data_source=self.data_source,
@@ -159,6 +170,7 @@ class DatabaseImporter(ChangeImporter):
             'resolution': action_data.resolution or '',
             'event': event,
             'article_number': str(action_data.article_number or ''),
+            'post_id': event.post_id
         }
         (action, created) = Action.objects.update_or_create(
             data_source=self.data_source,

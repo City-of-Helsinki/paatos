@@ -12,6 +12,8 @@ class Event(DataModel):
     name = models.CharField(max_length=255, help_text=_("The event's name"), blank=True)
     organization = models.ForeignKey('Organization', related_name='events',
                                      help_text=_('The organization organizing the event'), blank=True, null=True)
+    post = models.ForeignKey('Post', related_name='events',
+                             help_text=_('The post responsible for the event'), blank=True, null=True)
     start_date = models.DateTimeField(help_text=_('The time at which the event starts'))
     end_date = models.DateTimeField(help_text=_('The time at which the event ends'), blank=True, null=True)
 
