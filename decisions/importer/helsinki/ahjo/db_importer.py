@@ -4,7 +4,7 @@ from django.db import transaction
 
 from ....models import (
     Action, Case, Content, DataSource, Event, Function, ImportedFile,
-    Organization, Post, OrganizationClass, Person)
+    Organization, Post, OrganizationClass, Person, Attachment)
 from .importer import ChangeImporter
 
 LOG = logging.getLogger(__name__)
@@ -53,7 +53,10 @@ class DatabaseImporter(ChangeImporter):
         """
         LOG.info("Updating data from %s", doc_info.origin_id)
         doc = doc_info.get_document()
+        doc.attachments = doc_info.open_attachments()
         self._import_document(doc_info, doc)
+        for attachment in doc.attachments:
+            attachment.close()
 
     def _import_document(self, doc_info, doc):
         # Skip office-holder documents for now
@@ -128,6 +131,7 @@ class DatabaseImporter(ChangeImporter):
             action = self._import_action(action_data, event, num, case)
             imported_actions.add(action.pk)
             self._import_contents(action_data, action)
+            self._import_attachments(action_data, action, doc)
 
         # Delete all old non-updated actions (if there is any)
         event.actions.exclude(pk__in=imported_actions).delete()
@@ -144,7 +148,6 @@ class DatabaseImporter(ChangeImporter):
             register_id=action_data.register_id,
             defaults=defaults)
         _log_update_or_create(case, created)
-        self._import_attachments(action_data, case)
         return case
 
     def _get_or_create_function(self, data):
@@ -158,9 +161,28 @@ class DatabaseImporter(ChangeImporter):
             _log_update_or_create(function, created)
         return function
 
-    def _import_attachments(self, action_data, case):
-        for attachemnt_data in (action_data.attachments or []):
-            pass  # TODO: Import attachments
+    def _import_attachments(self, action_data, action, doc):
+        for attachment_data in (action_data.attachments or []):
+            defaults = dict(
+                name=attachment_data['name'] or '',
+                public=attachment_data['public'],
+                number=attachment_data['ordering'],
+                confidentiality_reason=attachment_data['confidentiality_reason']
+            )
+            attachment_id = attachment_data['id']
+            (attachment, created) = Attachment.objects.update_or_create(
+                data_source=self.data_source,
+                action=action,
+                origin_id=attachment_id or '',
+                defaults=defaults
+            )
+            if attachment_id:
+                file = doc.attachments[attachment_id]
+            else:
+                # the attachment might be removed and we have to remove the file accordingly
+                file = None
+            _log_update_or_create(attachment, created, logging.INFO)
+            return attachment
 
     def _import_action(self, action_data, event, num, case):
         defaults = {

@@ -7,7 +7,7 @@ import httpio
 from django.utils.functional import cached_property
 
 from .parse_dirlist import parse_file_path
-from .xmlparser import parse_xml
+from .xmlparser import parse_xml, parse_guid, GUID_REGEX
 
 LOG = logging.getLogger(__name__)
 
@@ -80,6 +80,23 @@ class DocumentInfo(object):
             document = parse_xml(xml_file)
         return document
 
+    def open_attachments(self):
+        """
+        Open the attachment binaries of this document info.
+
+        :rtype: Array
+        """
+        attachments = {}
+        for attachment in self._open_remote_attachments():
+            # save attachment reference under parsed guid
+            guid = re.search(GUID_REGEX, attachment.name).group(0)
+            print(guid)
+            attachments[parse_guid(guid)] = attachment
+            print(attachment.name)
+        print('opened the following attachments:')
+        print(attachments)
+        return attachments
+
     @contextlib.contextmanager
     def _open_remote_xml_file(self):
         with httpio.open(self.url) as remote_file:
@@ -98,3 +115,12 @@ class DocumentInfo(object):
         if len(xml_names) > 1:
             raise IOError("Too many XML files in ZIP: {}".format(self.url))
         return zipf.open(xml_names[0])
+
+    def _open_remote_attachments(self):
+        with httpio.open(self.url) as remote_file:
+            with zipfile.ZipFile(remote_file) as zipf:
+                name_list = zipf.namelist()
+                # any pdf may be an attachment, we save all the references for the duration of document import
+                pdf_names = (x for x in name_list if x.endswith('.pdf'))
+                while pdf_names:
+                    yield zipf.open(next(pdf_names))

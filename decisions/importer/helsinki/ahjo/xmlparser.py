@@ -28,6 +28,7 @@ LOCAL_TZ = pytz.timezone('Europe/Helsinki')
 
 LOG = logging.getLogger(__name__)
 
+GUID_REGEX = r'\{([A-F0-9]{8}-(?:[A-F0-9]{4}-){3}[A-F0-9]{12})\}'
 
 def parse_xml(source, except_treshold=logging.CRITICAL):
     """
@@ -44,6 +45,28 @@ def parse_xml(source, except_treshold=logging.CRITICAL):
     :rtype: Document
     """
     return XmlParser().parse(source, except_treshold)
+
+
+def parse_guid(raw):
+    """
+    Parse and validate GUIDs.
+
+    :type raw: str
+    :param raw:
+        GUID in the format {123E4567-E89B-12D3-A456-426655440000}
+    :rtype: str
+    :return: GUID in the format 123e4567-e89b-12d3-a456-426655440000
+    :raises ParseError: if the guid isn't in the specified format
+    """
+
+    if raw is None:
+        return None
+
+    guid_match = re.fullmatch(GUID_REGEX, raw)
+    if guid_match is not None:
+        return guid_match.group(1).lower()
+    else:
+        raise ParseError("Invalid GUID format")
 
 
 class ParseError(Exception):
@@ -109,28 +132,6 @@ class XmlParser:
             name = '{} {}'.format(name[1], name[0])
 
         return name
-
-    @classmethod
-    def parse_guid(cls, raw):
-        """
-        Parse and validate GUIDs.
-
-        :type raw: str
-        :param raw:
-          GUID in the format {123E4567-E89B-12D3-A456-426655440000}
-        :rtype: str
-        :return: GUID in the format 123e4567-e89b-12d3-a456-426655440000
-        :raises ParseError: if the guid isn't in the specified format
-        """
-
-        if raw is None:
-            return None
-
-        guid_match = re.fullmatch(r'\{([A-F0-9]{8}-(?:[A-F0-9]{4}-){3}[A-F0-9]{12})\}', raw)
-        if guid_match is not None:
-            return guid_match.group(1).lower()
-        else:
-            raise ParseError("Invalid GUID format")
 
     @classmethod
     def parse_datetime(cls, raw):
@@ -380,7 +381,7 @@ class XmlParser:
         _set_if_non_empty(attrs, 'function_id', function_id)
         _set_if_non_empty(attrs, 'function_name', function_name)
 
-        case_guid = self.parse_guid(self.gt(metadata, 'AsiaGuid'))
+        case_guid = parse_guid(self.gt(metadata, 'AsiaGuid'))
         if case_guid is None and not vakiopaatos:
             ctx.error("Action doesn't have an associated case")
         _set_if_non_empty(attrs, 'case_guid', case_guid)
@@ -416,10 +417,17 @@ class XmlParser:
         attrs['attachments'] = []
         attachments = action.findall('LiitteetOptio/Liitteet/LiitteetToisto')
         for a in attachments:
+            name = self.gt(a, 'Liiteteksti')
+            public = not name == 'Salassa pidettävä' and self.gt(a, 'JulkaisuKytkin') == 'true'
+            confidentiality_reason = self.gt(a, 'SalassapitoOptio/SalassapidonPerustelut')
+            if not confidentiality_reason:
+                confidentiality_reason = ''
             attrs['attachments'].append({
-                'id': self.parse_guid(self.gt(a, 'LiitteetId')),
-                'name': self.gt(a, 'Liiteteksti'),
-                'ordering': self.gt(a, 'Liitenumero', fmt=int)
+                'id': parse_guid(self.gt(a, 'LiitteetId')),
+                'name': name,
+                'ordering': self.gt(a, 'Liitenumero', fmt=int),
+                'public': public,
+                'confidentiality_reason': confidentiality_reason
             })
 
         return attrs

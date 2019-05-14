@@ -62,6 +62,8 @@ definitions:
       id: {type: [string, "null"]}
       name: {type: [string, "null"]}
       ordering: {type: integer}
+      public: {type: boolean}
+      confidentiality_reason: {type: [string, "null"]}
 
   error:
     additionalProperties: false
