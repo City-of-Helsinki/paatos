@@ -10,7 +10,8 @@ from lxml import etree
 from .document import Document
 
 RESOLUTION_MAP = {
-    'hyväksytty': 'accepted'
+    'hyväksytty': 'accepted',
+    'arkistoitu': 'archived'
 }
 
 ATTENDEE_MAP = {
