@@ -24,7 +24,7 @@ class DatabaseImporter(ChangeImporter):
 
     def should_import(self, doc_info):
         # Currently only "minutes" are imported, "agenda" is not.
-        should_import = (doc_info.doc_type == 'minutes') and 'VH' not in doc_info.policymaker_id
+        should_import = (doc_info.doc_type == 'minutes')
         if not should_import:
             LOG.debug("Skipping %s: %s", doc_info.doc_type, doc_info.origin_id)
         return should_import
