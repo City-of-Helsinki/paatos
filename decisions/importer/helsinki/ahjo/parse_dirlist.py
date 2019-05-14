@@ -54,15 +54,16 @@ def parse_dir_listing(content):
     :rtype: Iterable[DirEntry]
     :return: Parsed data as DirEntry objects
     """
-    root = lxml.html.fromstring(content)
-    link_elems = root.xpath('//a')
-    for link_elem in link_elems:
-        if link_elem.text == '[To Parent Directory]':
-            continue
-        href = link_elem.get('href')
-        prev = link_elem.getprevious()
-        preceeding_text = (prev.tail if prev is not None else '')
-        yield DirEntry(href, preceeding_text)
+    if content:
+        root = lxml.html.fromstring(content)
+        link_elems = root.xpath('//a')
+        for link_elem in link_elems:
+            if link_elem.text == '[To Parent Directory]':
+                continue
+            href = link_elem.get('href')
+            prev = link_elem.getprevious()
+            preceeding_text = (prev.tail if prev is not None else '')
+            yield DirEntry(href, preceeding_text)
 
 
 FILENAME_RX = re.compile(

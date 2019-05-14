@@ -53,7 +53,8 @@ class Scanner(object):
     def fetch_contents(self, path):
         response = requests.get(self.base_url + path)
         if response.status_code != 200:
-            raise IOError("Failed to fetch: {}".format(self.base_url + path))
+            LOG.warn("Failed to fetch: {}".format(self.base_url + path))
+            return None
         return response.content
 
     def _should_skip_dir_entry(self, dir_entry):
